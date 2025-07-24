@@ -72,19 +72,78 @@ function extractConversationFromPlatform(platform, format) {
 }
 
 function extractChatGPTConversation(format) {
-  return Array.from(document.querySelectorAll('div.group\\/conversation-turn'))
-    .map(turn => {
-      const speaker = turn.querySelector('.agent-turn') ? "AI" : "User";
-      const contentDiv = turn.querySelector('.min-h-8.text-message, .min-h-\\[20px\\].text-message');
-      
-      if (contentDiv) {
-        return [speaker, extractContent(contentDiv, format)];
-      }
-      return null;
-    })
-    .filter(message => message && message[1].length > 1);
-}
+  const messages = [];
 
+  // 查找所有带有data-message-author-role属性的元素
+  const messageElements = document.querySelectorAll(
+    "[data-message-author-role]"
+  );
+
+  if (messageElements.length > 0) {
+    messageElements.forEach((element) => {
+      const role = element.getAttribute("data-message-author-role");
+      const speaker = role === "assistant" ? "AI" : "User";
+
+      // 查找消息内容容器，基于实际HTML结构
+      let contentElement =
+        element.querySelector("[data-message-content]") ||
+        element.querySelector(".markdown") ||
+        element.querySelector('[class*="prose"]') ||
+        element.querySelector(".text-message") ||
+        element.querySelector("[data-start]") ||
+        element.querySelector("blockquote") ||
+        element.querySelector("div > p, div > ul, div > ol");
+
+      // 最后尝试查找包含文本的div
+      if (!contentElement) {
+        const divs = element.querySelectorAll("div");
+        for (const div of divs) {
+          const text = div.textContent.trim();
+          if (
+            text.length > 10 &&
+            !div.querySelector('button, svg, [role="button"]')
+          ) {
+            contentElement = div;
+            break;
+          }
+        }
+      }
+
+      if (contentElement) {
+        const text = extractContent(contentElement, format);
+        if (text.length > 1) {
+          messages.push([speaker, text]);
+        }
+      }
+    });
+  } else {
+    // 备用策略：基于实际HTML结构直接查找
+    // 用户消息通常在blockquote中
+    const userMessages = document.querySelectorAll("blockquote");
+    userMessages.forEach((blockquote) => {
+      const text = extractContent(blockquote, format);
+      if (text.length > 1) {
+        messages.push(["User", text]);
+      }
+    });
+
+    // AI回复通常在带有data-start属性的p, ul, ol元素中
+    const aiContentElements = document.querySelectorAll(
+      "p[data-start], ul[data-start], ol[data-start]"
+    );
+    aiContentElements.forEach((element) => {
+      // 确保不是blockquote内的元素
+      if (!element.closest("blockquote")) {
+        const text = extractContent(element, format);
+        if (text.length > 1) {
+          messages.push(["AI", text]);
+        }
+      }
+    });
+  }
+
+  return messages;
+}
 function extractClaudeConversation(format) {
   return Array.from(document.querySelectorAll('div.font-user-message, div.font-claude-message'))
     .map(container => {
