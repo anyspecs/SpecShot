@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kimi对话解析器 - 模拟网站</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .logo {
+            font-size: 2.5em;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1.8em;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 40px 20px;
+            margin-bottom: 30px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .upload-area:hover {
+            background-color: #f8f9ff;
+            border-color: #5a67d8;
+        }
+
+        .upload-area.dragover {
+            background-color: #f0f4f8;
+            border-color: #4299e1;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .upload-icon {
+            font-size: 3em;
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+
+        .upload-text {
+            font-size: 1.2em;
+            color: #4a5568;
+            margin-bottom: 10px;
+        }
+
+        .upload-hint {
+            color: #718096;
+            font-size: 0.9em;
+        }
+
+        .format-selection {
+            margin: 30px 0;
+        }
+
+        .format-selection h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+
+        .format-options {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .format-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border: 2px solid #e2e8f0;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .format-option:hover {
+            border-color: #667eea;
+            background-color: #f8f9ff;
+        }
+
+        .format-option input[type="radio"] {
+            accent-color: #667eea;
+        }
+
+        .process-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 25px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 20px;
+        }
+
+        .process-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .process-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .result-area {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #f7fafc;
+            border-radius: 15px;
+            display: none;
+        }
+
+        .file-info {
+            background-color: #e6fffa;
+            border: 1px solid #81e6d9;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+            text-align: left;
+        }
+
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 8px;
+            font-weight: 500;
+        }
+
+        .status.success {
+            background-color: #c6f6d5;
+            border: 1px solid #68d391;
+            color: #22543d;
+        }
+
+        .status.error {
+            background-color: #fed7d7;
+            border: 1px solid #fc8181;
+            color: #742a2a;
+        }
+
+        .download-btn {
+            background-color: #48bb78;
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 500;
+            margin: 10px 5px;
+            transition: all 0.3s ease;
+        }
+
+        .download-btn:hover {
+            background-color: #38a169;
+            transform: translateY(-1px);
+        }
+
+        .metadata {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 20px;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">📄🔄</div>
+        <h1>Kimi对话解析器</h1>
+        <p class="subtitle">将Kimi导出的Word文件转换为其他格式</p>
+
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">📁</div>
+            <div class="upload-text">点击选择Word文件或拖拽到此处</div>
+            <div class="upload-hint">支持 .docx 格式文件</div>
+            <input type="file" id="fileInput" accept=".doc,.docx" />
+        </div>
+
+        <div class="format-selection">
+            <h3>选择输出格式</h3>
+            <div class="format-options">
+                <label class="format-option">
+                    <input type="radio" name="format" value="markdown" checked>
+                    <span>📝 Markdown</span>
+                </label>
+                <label class="format-option">
+                    <input type="radio" name="format" value="html">
+                    <span>🌐 HTML</span>
+                </label>
+                <label class="format-option">
+                    <input type="radio" name="format" value="txt">
+                    <span>📄 纯文本</span>
+                </label>
+            </div>
+        </div>
+
+        <button class="process-btn" id="processBtn" disabled>开始转换</button>
+
+        <div class="result-area" id="resultArea">
+            <h3>处理结果</h3>
+            <div id="statusContainer"></div>
+            <div id="downloadContainer"></div>
+        </div>
+
+        <div class="metadata" id="metadata"></div>
+    </div>
+
+    <script>
+        // 解析URL参数
+        const urlParams = new URLSearchParams(window.location.search);
+        const source = urlParams.get('source');
+        const timestamp = urlParams.get('timestamp');
+        const chatId = urlParams.get('chatId');
+        const metadata = urlParams.get('metadata');
+
+        // 显示来源信息
+        if (source === 'kimi') {
+            const metadataDiv = document.getElementById('metadata');
+            let metadataInfo = `<strong>来源:</strong> Kimi聊天 (${chatId || '未知ID'})<br>`;
+            metadataInfo += `<strong>时间:</strong> ${new Date(parseInt(timestamp || '0')).toLocaleString()}<br>`;
+            
+            if (metadata) {
+                try {
+                    const parsedMetadata = JSON.parse(metadata);
+                    metadataInfo += `<strong>页面标题:</strong> ${parsedMetadata.title || '未知'}<br>`;
+                    metadataInfo += `<strong>原始URL:</strong> <a href="${parsedMetadata.url}" target="_blank" style="color: #667eea;">${parsedMetadata.url}</a>`;
+                } catch (e) {
+                    console.warn('Failed to parse metadata:', e);
+                }
+            }
+            metadataDiv.innerHTML = metadataInfo;
+        }
+
+        // 文件上传处理
+        const fileInput = document.getElementById('fileInput');
+        const uploadArea = document.getElementById('uploadArea');
+        const processBtn = document.getElementById('processBtn');
+        const resultArea = document.getElementById('resultArea');
+
+        let selectedFile = null;
+
+        // 点击上传区域
+        uploadArea.addEventListener('click', () => fileInput.click());
+
+        // 文件选择
+        fileInput.addEventListener('change', handleFileSelect);
+
+        // 拖拽处理
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (file) {
+                handleFile(file);
+            }
+        }
+
+        function handleFile(file) {
+            if (!file.name.toLowerCase().endsWith('.docx') && !file.name.toLowerCase().endsWith('.doc')) {
+                alert('请选择Word文档文件 (.doc 或 .docx)');
+                return;
+            }
+
+            selectedFile = file;
+            
+            // 更新UI
+            uploadArea.innerHTML = `
+                <div class="upload-icon">✅</div>
+                <div class="upload-text">已选择: ${file.name}</div>
+                <div class="upload-hint">文件大小: ${(file.size / 1024 / 1024).toFixed(2)} MB</div>
+            `;
+            
+            processBtn.disabled = false;
+        }
+
+        // 处理按钮
+        processBtn.addEventListener('click', processFile);
+
+        async function processFile() {
+            if (!selectedFile) return;
+
+            const format = document.querySelector('input[name="format"]:checked').value;
+            
+            processBtn.disabled = true;
+            processBtn.textContent = '正在处理...';
+            resultArea.style.display = 'block';
+            
+            const statusContainer = document.getElementById('statusContainer');
+            statusContainer.innerHTML = '<div class="status">正在解析Word文档...</div>';
+
+            try {
+                // 模拟文件处理
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                // 模拟成功结果
+                const mockContent = generateMockContent(selectedFile.name, format);
+                
+                statusContainer.innerHTML = '<div class="status success">✅ 文件处理成功！</div>';
+                
+                // 生成下载按钮
+                const downloadContainer = document.getElementById('downloadContainer');
+                downloadContainer.innerHTML = `
+                    <button class="download-btn" onclick="downloadFile('${format}')">
+                        📥 下载 ${format.toUpperCase()} 文件
+                    </button>
+                    <div class="file-info">
+                        <strong>处理信息:</strong><br>
+                        原文件: ${selectedFile.name}<br>
+                        输出格式: ${format.toUpperCase()}<br>
+                        处理时间: ${new Date().toLocaleString()}
+                    </div>
+                `;
+                
+            } catch (error) {
+                statusContainer.innerHTML = `<div class="status error">❌ 处理失败: ${error.message}</div>`;
+            }
+            
+            processBtn.disabled = false;
+            processBtn.textContent = '重新处理';
+        }
+
+        function generateMockContent(filename, format) {
+            const baseContent = `# Kimi聊天记录
+
+**来源文件:** ${filename}
+**处理时间:** ${new Date().toLocaleString()}
+**输出格式:** ${format}
+
+## 对话内容
+
+**用户:**
+你好！请帮我总结一下今天的新闻。
+
+**AI:**
+好的！我来为您总结今天的主要新闻：
+
+1. **科技新闻**: 人工智能技术在各个领域的应用持续扩展
+2. **经济动态**: 全球市场表现相对稳定
+3. **社会热点**: 环保议题持续受到关注
+
+这是一个模拟的对话内容，实际使用时将显示真实的Kimi对话记录。
+
+---
+*本内容由Kimi对话解析器自动生成*`;
+
+            return baseContent;
+        }
+
+        function downloadFile(format) {
+            const content = generateMockContent(selectedFile.name, format);
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `kimi-chat-${Date.now()}.${format === 'markdown' ? 'md' : format}`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>

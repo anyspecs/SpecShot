@@ -11,9 +11,10 @@ AI Chat History Extractor - Browser Extension
 
 ## 项目功能
 浏览器扩展，支持从以下AI聊天平台提取对话历史:
-- ChatGPT (chatgpt.com)
-- Claude AI (claude.ai) 
-- Poe (poe.com)
+- ChatGPT (chatgpt.com) - 直接DOM解析
+- Claude AI (claude.ai) - 直接DOM解析
+- Poe (poe.com) - 直接DOM解析
+- Kimi (kimi.moonshot.cn) - 自动化操作模式
 
 ### 导出格式
 - Markdown (.md)
@@ -22,25 +23,30 @@ AI Chat History Extractor - Browser Extension
 
 ## 架构设计
 
-### WXT框架结构 (简化后)
+### WXT框架结构 (支持Kimi自动化)
 ```
 📂 entrypoints/
 ├── 📄 background.ts          # 后台脚本 - 标签页管理、消息路由
-├── 📄 content.ts             # 内容脚本 - 协调层，直接导入模块
+├── 📄 content.ts             # 内容脚本 - 双模式协调层
 ├── 📂 popup/                 # 弹窗界面
 │   ├── 📄 index.html
 │   ├── 📄 main.tsx
-│   ├── 📄 App.tsx           # React主组件
+│   ├── 📄 App.tsx           # React主组件(支持Kimi反馈)
 │   └── 📄 App.css           # 样式文件
-├── 📂 export/               # 格式转换模块 (无index/types)
+├── 📂 export/               # 格式转换模块 
 │   ├── 📄 markdown.ts       # Markdown处理+下载
 │   ├── 📄 html.ts          # HTML处理+下载
 │   └── 📄 text.ts          # 纯文本处理+下载
-└── 📂 llm/                  # 平台提取器 (无index/types)
-    ├── 📄 chatgpt.ts       # ChatGPT DOM解析
-    ├── 📄 claude.ts        # Claude DOM解析
-    ├── 📄 poe.ts          # Poe DOM解析
-    └── 📄 platform.ts      # 平台检测
+├── 📂 llm/                  # 平台处理器
+│   ├── 📄 chatgpt.ts       # ChatGPT DOM解析
+│   ├── 📄 claude.ts        # Claude DOM解析
+│   ├── 📄 poe.ts          # Poe DOM解析
+│   ├── 📄 kimi.ts         # Kimi自动化操作
+│   └── 📄 platform.ts      # 平台检测(含Kimi)
+└── 📂 automation/           # 自动化操作模块
+    ├── 📄 dom-clicker.ts   # DOM元素智能点击
+    ├── 📄 error-handler.ts # 错误处理和用户指导
+    └── 📄 parser-navigator.ts # 解析网站导航
 ```
 
 ### 核心模块

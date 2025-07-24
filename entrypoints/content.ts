@@ -4,16 +4,55 @@ import { htmlToPlaintext, formatPlaintextMetadata, formatPlaintextMessage, downl
 import { extractChatGPTConversation } from './llm/chatgpt';
 import { extractClaudeConversation } from './llm/claude';
 import { extractPoeConversation } from './llm/poe';
+import { KimiAutomation } from './llm/kimi';
 import { detectPlatform, type Platform } from './llm/platform';
 
 export default defineContentScript({
   matches: [
     '*://chatgpt.com/*',
     '*://claude.ai/*', 
-    '*://poe.com/*'
+    '*://poe.com/*',
+    '*://kimi.moonshot.cn/*',
+    '*://kimi.com/*',
+    '*://www.kimi.com/*'
   ],
   main() {
-    function extractConversation(format: string) {
+    async function extractConversation(format: string) {
+      const platform = detectPlatform();
+      
+      // Kimi平台使用自动化操作模式
+      if (platform === 'Kimi') {
+        return await handleKimiAutomation();
+      }
+      
+      // 其他平台使用直接提取模式
+      return handleDirectExtraction(platform, format);
+    }
+
+    async function handleKimiAutomation() {
+      try {
+        const result = await KimiAutomation.performAutomation();
+        return {
+          platform: 'Kimi',
+          automationMode: true,
+          success: result.success,
+          message: result.message,
+          error: result.error,
+          userGuidance: result.userGuidance,
+          logs: result.logs
+        };
+      } catch (error: any) {
+        return {
+          platform: 'Kimi',
+          automationMode: true,
+          success: false,
+          error: `Kimi自动化操作失败: ${error.message}`,
+          logs: [`Error: ${error.message}`]
+        };
+      }
+    }
+
+    function handleDirectExtraction(platform: Platform, format: string) {
       const logs: string[] = [];
       const log = (message: string) => {
         console.log(message);
@@ -21,7 +60,6 @@ export default defineContentScript({
       };
 
       try {
-        const platform = detectPlatform();
         log(`Platform detected: ${platform}`);
         log(`Format selected: ${format}`);
         
@@ -29,8 +67,24 @@ export default defineContentScript({
         
         if (messages.length > 0) {
           const content = formatConversation(platform, messages, format);
-          const downloadStatus = downloadConversation(content, format);
-          return { platform, messageCount: messages.length, downloadInitiated: true, logs };
+          
+          // 创建文件并上传到REST API
+          const filename = `${platform}_conversation_${new Date().getTime()}.md`;
+          const file = new File([content], filename, { type: 'text/markdown' });
+          
+          // 通过消息传递到popup处理文件上传
+          return { 
+            platform, 
+            messageCount: messages.length, 
+            downloadInitiated: true,
+            fileData: {
+              content,
+              filename,
+              size: file.size,
+              type: file.type
+            },
+            logs 
+          };
         } else {
           return { error: "No messages found in the conversation.", logs };
         }
@@ -106,9 +160,17 @@ export default defineContentScript({
       }
     }
 
-    browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    browser.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
       if (request.action === "extract") {
-        sendResponse(extractConversation(request.format));
+        try {
+          const result = await extractConversation(request.format);
+          sendResponse(result);
+        } catch (error: any) {
+          sendResponse({ 
+            error: `处理失败: ${error.message}`,
+            logs: [`Error: ${error.message}`]
+          });
+        }
       } else if (request.action === "detectPlatform") {
         sendResponse({ platform: detectPlatform() });
       }
