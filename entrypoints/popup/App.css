@@ -356,3 +356,284 @@
   font-style: italic;
   font-size: 0.8em;
 }
+
+/* 认证相关样式 */
+
+/* 认证加载状态 */
+.auth-loading {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.auth-loading span {
+  font-size: 2em;
+  display: block;
+  margin-bottom: 10px;
+}
+
+.auth-loading p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.9em;
+}
+
+/* 未认证状态 */
+.auth-required {
+  text-align: center;
+  padding: 30px 20px;
+}
+
+.auth-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.auth-icon {
+  font-size: 3em;
+  margin-bottom: 8px;
+  opacity: 0.8;
+}
+
+.auth-message h3 {
+  margin: 0;
+  font-size: 1.2em;
+  color: var(--text-color);
+  font-weight: 600;
+}
+
+.auth-message p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.9em;
+  line-height: 1.4;
+  max-width: 280px;
+}
+
+/* 认证操作按钮容器 */
+.auth-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  align-items: center;
+}
+
+/* 登录按钮 */
+.login-btn {
+  background: linear-gradient(135deg, #4285f4 0%, #34a853 100%);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  font-size: 0.95em;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow);
+  min-width: 160px;
+  justify-content: center;
+}
+
+/* 刷新状态按钮 */
+.refresh-btn {
+  background: var(--background-color);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  padding: 8px 16px;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  font-size: 0.85em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  min-width: 120px;
+  justify-content: center;
+}
+
+.refresh-btn:hover:not(:disabled) {
+  background: var(--log-bg);
+  border-color: var(--secondary-color);
+  color: var(--text-color);
+}
+
+.refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.login-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(66, 133, 244, 0.3);
+}
+
+.login-btn:active {
+  transform: translateY(0);
+}
+
+/* 已认证状态 */
+.authenticated {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* 用户信息栏 */
+.user-info {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, var(--log-bg) 0%, rgba(79, 70, 229, 0.05) 100%);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  gap: 12px;
+  position: relative;
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid var(--border-color);
+  object-fit: cover;
+}
+
+.user-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.user-name {
+  font-weight: 500;
+  font-size: 0.9em;
+  color: var(--text-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-email {
+  font-size: 0.75em;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 登出按钮 */
+.logout-btn {
+  background: none;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9em;
+  transition: all 0.2s ease;
+  min-width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logout-btn:hover {
+  background-color: var(--log-bg);
+  border-color: var(--secondary-color);
+  color: var(--text-color);
+}
+
+/* 错误显示 */
+.error-container {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: var(--border-radius);
+  padding: 12px 16px;
+  margin-top: 12px;
+  text-align: left;
+}
+
+.error-message {
+  color: var(--error-color);
+  font-size: 0.85em;
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+.retry-btn {
+  background: var(--error-color);
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8em;
+  transition: all 0.2s ease;
+}
+
+.retry-btn:hover {
+  background-color: var(--error-hover);
+}
+
+/* 响应式适配 */
+@media (max-width: 380px) {
+  .auth-required {
+    padding: 20px 16px;
+  }
+  
+  .auth-message h3 {
+    font-size: 1.1em;
+  }
+  
+  .auth-message p {
+    font-size: 0.85em;
+  }
+  
+  .user-info {
+    padding: 10px 12px;
+    gap: 10px;
+  }
+  
+  .user-avatar {
+    width: 28px;
+    height: 28px;
+  }
+  
+  .user-name {
+    font-size: 0.85em;
+  }
+  
+  .user-email {
+    font-size: 0.7em;
+  }
+  
+  .logout-btn {
+    min-width: 28px;
+    height: 28px;
+    font-size: 0.8em;
+  }
+}
+
+/* 深色模式下的认证样式调整 */
+@media (prefers-color-scheme: dark) {
+  .login-btn {
+    background: linear-gradient(135deg, #4285f4 0%, #34a853 100%);
+  }
+  
+  .user-info {
+    background: linear-gradient(135deg, var(--log-bg) 0%, rgba(99, 102, 241, 0.1) 100%);
+  }
+  
+  .error-container {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.3);
+  }
+}

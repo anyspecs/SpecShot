@@ -1,4 +1,4 @@
-import { RestFileTransfer } from './automation/rest-file-transfer';
+// 移除REST上传相关import，改为纯离线流程
 
 export default defineBackground(() => {
   const SUPPORTED_URLS = ['chatgpt.com', 'claude.ai', 'poe.com', 'kimi.com', 'kimi.moonshot.cn', 'www.kimi.com'];
@@ -204,50 +204,41 @@ export default defineBackground(() => {
           downloadWaitTimeout = null;
         }
         
-        // 上传文件到REST API
-        await uploadFileToRest(downloadItem);
+        // 文件下载完成，直接跳转到processor页面
+        await handleFileDownloadComplete(downloadItem);
       }
     } catch (error: any) {
       console.error('处理下载完成失败:', error);
     }
   }
 
-  async function uploadFileToRest(downloadItem: any) {
+  async function handleFileDownloadComplete(downloadItem: any) {
     try {
-      console.log('📤 开始上传文件到REST API:', downloadItem.filename);
-      console.log('📋 下载项详情:', downloadItem);
+      console.log('✅ 文件下载完成:', downloadItem.filename);
+      console.log('📋 文件路径:', downloadItem.filename);
       
-      const transfer = new RestFileTransfer();
-      
-      // 创建模拟文件对象（浏览器扩展无法直接读取下载文件）
-      const simulatedContent = `文件信息:\n文件名: ${downloadItem.filename}\n下载时间: ${new Date().toISOString()}\n平台: ${currentPlatform}`;
-      const file = new File([simulatedContent], downloadItem.filename, {
-        type: downloadItem.mime || 'application/octet-stream'
+      // 直接跳转到processor页面
+      const processorTab = await browser.tabs.create({ 
+        url: 'http://localhost:3000/processor',
+        active: true 
       });
       
-      const result = await transfer.startTransfer(file, currentPlatform, (progress) => {
-        console.log(`上传进度: ${Math.round(progress)}%`);
-      });
+      console.log('🌐 已跳转到processor页面');
       
-      if (result.success && result.redirectUrl) {
-        console.log('✅ 文件上传成功，准备跳转:', result.redirectUrl);
-        
-        // 通知popup跳转
-        browser.runtime.sendMessage({
-          action: 'fileUploadComplete',
-          success: true,
-          redirectUrl: result.redirectUrl,
-          filename: downloadItem.filename
-        });
-      } else {
-        console.error('❌ 文件上传失败:', result.error);
-      }
+      // 通知popup文件处理完成
+      browser.runtime.sendMessage({
+        action: 'fileDownloadComplete',
+        success: true,
+        filename: downloadItem.filename,
+        filePath: downloadItem.filename,
+        platform: currentPlatform
+      });
       
     } catch (error: any) {
-      console.error('❌ 上传过程失败:', error);
+      console.error('❌ 处理文件下载完成失败:', error);
       
       browser.runtime.sendMessage({
-        action: 'fileUploadComplete',
+        action: 'fileDownloadComplete',
         success: false,
         error: error.message
       });

@@ -1,4 +1,4 @@
-export type Platform = 'ChatGPT' | 'Claude' | 'Poe' | 'Kimi' | 'Unknown';
+export type Platform = 'ChatGPT' | 'Claude' | 'Poe' | 'Kimi' | 'Gemini' | 'Unknown';
 export type ActionType = 'extract' | 'automate' | 'detect';
 export type ButtonState = 'idle' | 'processing' | 'success' | 'error';
 
@@ -38,6 +38,13 @@ export const PLATFORM_CONFIGS: Record<Platform, PlatformConfig> = {
     buttonText: '剪存对话',
     icon: '🌙',
     description: 'Kimi对话剪存'
+  },
+  Gemini: {
+    action: 'extract',
+    format: 'markdown',
+    buttonText: '剪存对话',
+    icon: '💎',
+    description: 'Gemini对话剪存'
   },
   Unknown: {
     action: 'detect',
@@ -94,7 +101,8 @@ export const getPlatformSpecificHelp = (platform: Platform): string => {
     Claude: '请确保在Claude对话页面，且对话内容可见',
     Poe: '请确保在Poe对话页面，且对话内容已加载',
     Kimi: '请确保在Kimi聊天页面，且页面功能正常',
-    Unknown: '请在ChatGPT、Claude、Poe或Kimi页面使用此扩展'
+    Gemini: '请确保在Gemini对话页面，且对话内容已加载',
+    Unknown: '请在ChatGPT、Claude、Poe、Kimi或Gemini页面使用此扩展'
   };
   
   return helpMessages[platform];

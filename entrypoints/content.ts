@@ -4,6 +4,7 @@ import { htmlToPlaintext, formatPlaintextMetadata, formatPlaintextMessage, downl
 import { extractChatGPTConversation } from './llm/chatgpt';
 import { extractClaudeConversation } from './llm/claude';
 import { extractPoeConversation } from './llm/poe';
+import { extractGeminiConversation } from './llm/gemini';
 import { KimiAutomation } from './llm/kimi';
 import { detectPlatform, type Platform } from './llm/platform';
 
@@ -14,7 +15,9 @@ export default defineContentScript({
     '*://poe.com/*',
     '*://kimi.moonshot.cn/*',
     '*://kimi.com/*',
-    '*://www.kimi.com/*'
+    '*://www.kimi.com/*',
+    '*://gemini.google.com/*',
+    '*://bard.google.com/*'
   ],
   main() {
     async function extractConversation(format: string) {
@@ -68,7 +71,11 @@ export default defineContentScript({
         if (messages.length > 0) {
           const content = formatConversation(platform, messages, format);
           
-          // 创建文件并上传到REST API
+          // 触发文件下载
+          const downloadFilename = downloadConversation(content, format);
+          log(`文件下载已触发: ${downloadFilename}`);
+          
+          // 创建文件数据用于后续处理
           const filename = `${platform}_conversation_${new Date().getTime()}.md`;
           const file = new File([content], filename, { type: 'text/markdown' });
           
@@ -77,6 +84,7 @@ export default defineContentScript({
             platform, 
             messageCount: messages.length, 
             downloadInitiated: true,
+            downloadFilename,
             fileData: {
               content,
               filename,
@@ -115,6 +123,8 @@ export default defineContentScript({
           return extractClaudeConversation(extractContent);
         case 'Poe':
           return extractPoeConversation(extractContent);
+        case 'Gemini':
+          return extractGeminiConversation(extractContent);
         default:
           return [];
       }

@@ -7,12 +7,14 @@ import {
   type Platform, 
   type ButtonState 
 } from './platform-config';
-import { RestFileTransfer } from '../automation/rest-file-transfer';
+import { AuthManager, type UserInfo } from '../utils/auth-manager';
 
 interface LogEntry {
   timestamp: string;
   message: string;
 }
+
+type AuthState = 'loading' | 'authenticated' | 'unauthenticated';
 
 function App() {
   const [currentPlatform, setCurrentPlatform] = useState<Platform>('Unknown');
@@ -21,6 +23,12 @@ function App() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
+  
+  // 认证相关状态
+  const [authState, setAuthState] = useState<AuthState>('loading');
+  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string>('');
+  const [retryCount, setRetryCount] = useState<number>(0);
 
   const log = (message: string) => {
     const logEntry: LogEntry = {
@@ -50,8 +58,33 @@ function App() {
     }
   };
 
+  // 检查认证状态
+  const checkAuthStatus = async () => {
+    try {
+      log('检查认证状态...');
+      const status = await AuthManager.checkAuthStatus();
+      
+      if (status === 'authenticated') {
+        const authData = await AuthManager.getAuthData();
+        setAuthState('authenticated');
+        setUserInfo(authData.userInfo);
+        log(`已认证用户: ${authData.userInfo?.name}`);
+      } else {
+        setAuthState('unauthenticated');
+        log('用户未认证');
+      }
+    } catch (error) {
+      console.error('Auth status check failed:', error);
+      setAuthState('unauthenticated');
+      handleAuthError(error, '认证状态检查');
+    }
+  };
+
   const initializePopup = async () => {
     log('初始化扩展...');
+    
+    // 首先检查认证状态
+    await checkAuthStatus();
     
     // 检测当前平台
     const platform = await detectCurrentPlatform();
@@ -63,7 +96,7 @@ function App() {
     
     if (platform === 'Unknown') {
       log('请在ChatGPT、Claude、Poe或Kimi页面使用此扩展');
-    } else {
+    } else if (authState === 'authenticated') {
       log(`准备执行: ${config.description}`);
     }
     
@@ -117,12 +150,40 @@ function App() {
     }
   };
 
-  // 文件上传进度处理
+  // 处理登录跳转 - 简化为纯网页登录
+  const handleLoginRedirect = async () => {
+    try {
+      log('🔐 跳转到网页登录...');
+      
+      // 直接跳转到网页登录
+      chrome.tabs.create({ 
+        url: 'http://localhost:3000/login?from=extension',
+        active: true 
+      });
+      
+      // 关闭当前popup
+      window.close();
+      
+    } catch (error) {
+      console.error('Login redirect failed:', error);
+      handleAuthError(error, '登录跳转');
+    }
+  };
+
+
+  // 修改后的文件处理逻辑（发送数据到processor页面）
   const handleFileUpload = async (fileData: any, platform: string) => {
+    if (authState !== 'authenticated') {
+      handleLoginRedirect();
+      return;
+    }
+    
     setIsProcessing(true);
     setProgress(0);
     
     try {
+      log('📁 准备文件数据...');
+      
       // 检查是否需要等待下载检测
       if (fileData.needsDownloadDetection) {
         log('🔍 等待后台服务检测文件下载...');
@@ -139,77 +200,148 @@ function App() {
         return; // 让后台服务处理剩余流程
       }
       
-      const transfer = new RestFileTransfer();
+      setProgress(30);
+      log('📝 格式化文件内容...');
       
-      let file: File;
+      // 准备文件数据
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filename = `${platform}-conversations-${timestamp}.md`;
+      const content = fileData.content || fileData;
       
-      if (fileData.file) {
-        // 已经是File对象，直接使用
-        file = fileData.file;
-        log(`📁 使用下载的文件: ${file.name}`);
-      } else if (fileData.content) {
-        // 直接提取的内容，创建文件
-        file = new File([fileData.content], fileData.filename, { 
-          type: fileData.type 
-        });
-      } else if (fileData.needsFilePickup) {
-        // Kimi下载的文件，已经找到但需要特殊处理
-        if (fileData.downloadPath) {
-          log(`📁 检测到下载文件: ${fileData.filename}`);
-          log(`📤 准备上传文件 (${fileData.size} bytes)...`);
-          
-          // 创建一个模拟的File对象
-          // 注意：这里无法直接读取用户下载文件夹的文件内容
-          // 实际项目中需要用户手动选择文件或使用其他方法
-          const simulatedContent = `Kimi导出文件: ${fileData.filename}\n时间: ${new Date().toISOString()}`;
-          file = new File([simulatedContent], fileData.filename, { 
-            type: fileData.type 
-          });
-          
-          log('⚠️ 注意：当前使用模拟文件内容进行上传测试');
-        } else {
-          if (fileData.downloadError) {
-            log(`⚠️ 下载监听失败: ${fileData.downloadError}`);
-          }
-          log('📁 请手动点击下载按钮并重试...');
-          throw new Error('自动下载失败，请手动下载文件后重试');
-        }
-      } else {
-        throw new Error('无效的文件数据');
-      }
+      setProgress(60);
+      log('🌐 打开processor页面...');
       
-      log(`📤 开始上传文件: ${file.name}`);
-      
-      const result = await transfer.startTransfer(file, platform, (progress) => {
-        setProgress(progress);
-        if (progress % 20 === 0) { // 每20%记录一次日志
-          log(`上传进度: ${Math.round(progress)}%`);
-        }
+      // 先打开processor页面
+      const processorTab = await chrome.tabs.create({ 
+        url: 'http://localhost:3000/processor',
+        active: true 
       });
       
-      if (result.success && result.redirectUrl) {
-        setProgress(100);
-        log('✅ 文件上传完成！');
-        log('🌐 正在跳转到解析网站...');
+      setProgress(80);
+      log('📨 发送文件数据到processor...');
+      
+      // 使用重试机制发送数据
+      const sendWithRetry = async (retryCount = 0) => {
+        const maxRetries = 3;
+        const delay = (retryCount + 1) * 2000; // 2s, 4s, 6s
         
-        setTimeout(() => {
-          window.open(result.redirectUrl!, '_blank');
-          setIsProcessing(false);
-          setProgress(0);
-        }, 500);
-      } else {
-        throw new Error(result.error || '上传失败');
-      }
+        setTimeout(async () => {
+          try {
+            log(`📤 尝试发送数据 (第${retryCount + 1}次)...`);
+            
+            const result = await chrome.scripting.executeScript({
+              target: { tabId: processorTab.id! },
+              function: (data, attempt) => {
+                console.log(`Extension: 第${attempt}次尝试发送postMessage`, data);
+                console.log('Extension: 页面状态:', {
+                  readyState: document.readyState,
+                  url: window.location.href,
+                  hasReact: !!window.React,
+                  bodyContent: document.body ? document.body.innerHTML.length : 0,
+                  hasMessageListener: window.hasMessageListener || false
+                });
+                
+                // 等待页面完全加载后再发送
+                const sendAfterLoad = () => {
+                  // 发送postMessage
+                  console.log('Extension: 准备发送postMessage...');
+                  window.postMessage({
+                    type: 'PLUGIN_FILE_DATA',
+                    content: data.content,
+                    filename: data.filename,
+                    platform: data.platform
+                  }, '*');
+                  
+                  console.log('Extension: postMessage已发送');
+                  
+                  // 同时设置到window对象，作为备用方案
+                  window.extensionFileData = {
+                    type: 'PLUGIN_FILE_DATA',
+                    content: data.content,
+                    filename: data.filename,
+                    platform: data.platform
+                  };
+                  console.log('Extension: 数据已设置到window.extensionFileData');
+                  
+                  // 触发自定义事件作为第三种备用方案
+                  try {
+                    const customEvent = new CustomEvent('extensionFileData', {
+                      detail: {
+                        type: 'PLUGIN_FILE_DATA',
+                        content: data.content,
+                        filename: data.filename,
+                        platform: data.platform
+                      }
+                    });
+                    window.dispatchEvent(customEvent);
+                    console.log('Extension: 自定义事件已触发');
+                  } catch (e) {
+                    console.log('Extension: 自定义事件触发失败', e);
+                  }
+                  
+                  return `成功发送 (尝试${attempt})`;
+                };
+                
+                // 如果页面未完全加载，等待加载完成
+                if (document.readyState !== 'complete') {
+                  console.log('Extension: 页面未完全加载，等待...');
+                  window.addEventListener('load', () => {
+                    setTimeout(sendAfterLoad, 1000);
+                  });
+                  return `等待页面加载 (尝试${attempt})`;
+                } else {
+                  // 页面已加载，稍微延迟后发送（给React组件时间初始化）
+                  setTimeout(sendAfterLoad, 500);
+                  return `页面已加载，延迟发送 (尝试${attempt})`;
+                }
+              },
+              args: [{ content, filename, platform }, retryCount + 1]
+            });
+            
+            log(`✅ 第${retryCount + 1}次发送成功！`);
+            log(`📝 返回: ${result[0].result}`);
+            
+          } catch (error) {
+            console.error(`第${retryCount + 1}次发送失败:`, error);
+            log(`❌ 第${retryCount + 1}次失败: ${error}`);
+            
+            if (retryCount < maxRetries - 1) {
+              log(`🔄 将在${(retryCount + 2) * 2}秒后重试...`);
+              sendWithRetry(retryCount + 1);
+            } else {
+              log('❌ 所有重试都失败了，请手动刷新processor页面');
+            }
+          }
+        }, delay);
+      };
+      
+      // 开始发送
+      sendWithRetry();
+      
+      setProgress(100);
+      log('🎉 操作完成！');
+      
+      // 关闭popup
+      setTimeout(() => {
+        window.close();
+      }, 1000);
       
     } catch (error: any) {
-      log(`❌ 上传失败: ${error.message}`);
+      log(`❌ 操作失败: ${error.message}`);
       setIsProcessing(false);
       setProgress(0);
+      setButtonState('error');
       throw error;
     }
   };
 
   const handleOneClickAction = async () => {
+    // 检查认证状态
+    if (authState !== 'authenticated') {
+      handleLoginRedirect();
+      return;
+    }
+    
     const config = PLATFORM_CONFIGS[currentPlatform];
     
     setButtonState('processing');
@@ -217,12 +349,6 @@ function App() {
     log(`执行${config.description}...`);
 
     try {
-      // 启动后台下载监听服务
-      await browser.runtime.sendMessage({
-        action: 'startDownloadWatch',
-        platform: currentPlatform
-      });
-      
       let response;
       
       switch (config.action) {
@@ -240,9 +366,21 @@ function App() {
           return;
       }
       
-      // 处理文件上传
+      // 处理文件上传或跳转
       if (response && response.fileData) {
         await handleFileUpload(response.fileData, currentPlatform);
+      } else if (response && response.automationMode && response.success) {
+        // Kimi自动化成功，直接跳转到processor页面
+        log('🎉 Kimi自动化完成，跳转到processor页面...');
+        await chrome.tabs.create({ 
+          url: 'http://localhost:3000/processor',
+          active: true 
+        });
+        
+        // 关闭popup
+        setTimeout(() => {
+          window.close();
+        }, 500);
       }
       
       setButtonState('success');
@@ -252,6 +390,40 @@ function App() {
       setProgress(0);
       handleError(error);
     }
+  };
+
+  // 认证错误处理
+  const handleAuthError = (error: any, context: string) => {
+    console.error(`Auth error in ${context}:`, error);
+    
+    let userMessage = '';
+    if (error.message?.includes('network')) {
+      userMessage = '网络连接失败，请检查网络后重试';
+    } else if (error.message?.includes('token')) {
+      userMessage = '认证令牌无效，请重新登录';
+    } else if (error.message?.includes('permission')) {
+      userMessage = '权限不足，请联系管理员';
+    } else {
+      userMessage = `${context}失败，请重试`;
+    }
+    
+    setErrorMessage(userMessage);
+    log(`❌ ${userMessage}`);
+    
+    // 自动清除错误消息
+    setTimeout(() => setErrorMessage(''), 5000);
+  };
+
+  // 重试机制
+  const handleRetry = async () => {
+    if (retryCount >= 3) {
+      setErrorMessage('重试次数过多，请稍后再试');
+      return;
+    }
+    
+    setRetryCount(prev => prev + 1);
+    setErrorMessage('');
+    await checkAuthStatus();
   };
 
   const handleError = (error: any) => {
@@ -308,6 +480,11 @@ function App() {
   };
 
   const handleButtonClick = () => {
+    if (authState === 'unauthenticated') {
+      handleLoginRedirect();
+      return;
+    }
+    
     if (buttonState === 'error' || buttonState === 'success') {
       // 重试逻辑
       setButtonState('idle');
@@ -317,24 +494,72 @@ function App() {
     }
   };
 
+  // 登出处理
+  const handleLogout = async () => {
+    try {
+      await AuthManager.logout();
+      setAuthState('unauthenticated');
+      setUserInfo(null);
+      log('🔓 已登出');
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
+
   useEffect(() => {
     initializePopup();
     
     // 监听来自background script的消息
     const messageListener = (message: any) => {
       if (message.action === 'fileUploadComplete') {
+        // 处理下载检测完成的情况，发送到processor页面
         if (message.success) {
-          log('✅ 文件自动上传完成！');
-          log('🌐 正在跳转到解析网站...');
+          log('✅ 文件检测完成！');
+          log('🌐 正在跳转到processor页面...');
+          
+          // 跳转到processor页面
+          chrome.tabs.create({ 
+            url: 'http://localhost:3000/processor',
+            active: true 
+          }).then((tab) => {
+            // 如果后台服务提供了文件数据，发送给processor
+            if (message.fileData) {
+              setTimeout(async () => {
+                try {
+                  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                  const filename = `${currentPlatform}-conversations-${timestamp}.md`;
+                  
+                  await chrome.scripting.executeScript({
+                    target: { tabId: tab.id! },
+                    function: (data) => {
+                      window.postMessage({
+                        type: 'PLUGIN_FILE_DATA',
+                        content: data.content,
+                        filename: data.filename,
+                        platform: data.platform
+                      }, '*');
+                    },
+                    args: [{ 
+                      content: message.fileData, 
+                      filename, 
+                      platform: currentPlatform 
+                    }]
+                  });
+                  
+                  log('✅ 文件数据发送成功！');
+                } catch (error) {
+                  console.error('Failed to send file data:', error);
+                  log('❌ 文件数据发送失败，请手动上传文件');
+                }
+              }, 2000);
+            }
+          });
           
           setTimeout(() => {
-            window.open(message.redirectUrl, '_blank');
-            setIsProcessing(false);
-            setProgress(0);
-            setButtonState('success');
-          }, 500);
+            window.close();
+          }, 1000);
         } else {
-          log(`❌ 自动上传失败: ${message.error}`);
+          log(`❌ 文件检测失败: ${message.error}`);
           setIsProcessing(false);
           setProgress(0);
           setButtonState('error');
@@ -349,19 +574,122 @@ function App() {
     };
   }, []);
 
+  // 错误显示组件
+  const ErrorDisplay = ({ error, onRetry }: { error: string, onRetry: () => void }) => (
+    <div className="error-container">
+      <div className="error-message">{error}</div>
+      <button className="retry-btn" onClick={onRetry}>
+        重试 ({retryCount}/3)
+      </button>
+    </div>
+  );
+
+  // 认证状态UI渲染
+  const renderAuthUI = () => {
+    if (authState === 'loading') {
+      return (
+        <div className="auth-loading">
+          <span>🔍</span>
+          <p>检查登录状态...</p>
+        </div>
+      );
+    }
+    
+    if (authState === 'unauthenticated') {
+      return (
+        <div className="auth-required">
+          <div className="auth-message">
+            <span className="auth-icon">🔒</span>
+            <h3>请先登录再使用插件</h3>
+            <p>需要在网页版登录后才能使用文件提取和上传功能</p>
+            <div className="auth-actions">
+              <button 
+                className="login-btn"
+                onClick={handleLoginRedirect}
+              >
+                🌐 前往网页登录
+              </button>
+              <button 
+                className="refresh-btn"
+                onClick={handleRetry}
+                disabled={retryCount >= 3}
+              >
+                🔄 刷新状态 ({retryCount}/3)
+              </button>
+            </div>
+            {errorMessage && <ErrorDisplay error={errorMessage} onRetry={handleRetry} />}
+          </div>
+        </div>
+      );
+    }
+    
+    // 已认证状态 - 显示用户信息和操作界面
+    return (
+      <div className="authenticated">
+        <div className="user-info">
+          <img src={userInfo?.avatar} alt="avatar" className="user-avatar" />
+          <div className="user-details">
+            <span className="user-name">{userInfo?.name}</span>
+            <span className="user-email">{userInfo?.email}</span>
+          </div>
+          <button className="logout-btn" onClick={handleLogout} title="登出">
+            🚪
+          </button>
+        </div>
+        {renderMainUI()}
+      </div>
+    );
+  };
+
+  // 主要UI渲染
+  const renderMainUI = () => {
+    const config = PLATFORM_CONFIGS[currentPlatform];
+    const buttonConfig = getButtonConfig(currentPlatform, buttonState);
+
+    return (
+      <>
+        {/* 平台信息显示 */}
+        <div className="platform-header">
+          <span className="platform-icon">{config.icon}</span>
+          <div className="platform-info">
+            <h2>{currentPlatform}</h2>
+            <p>{config.description}</p>
+          </div>
+        </div>
+
+        {/* 一键操作按钮 */}
+        <button 
+          className={`main-action-btn ${buttonConfig.className}`}
+          onClick={handleButtonClick}
+          disabled={buttonConfig.disabled && buttonState === 'processing'}
+        >
+          {buttonState === 'processing' && <span className="loading-spinner">⏳</span>}
+          {buttonConfig.text}
+        </button>
+
+        {/* 状态日志区域 - 只显示最近5条 */}
+        <div className="log-area">
+          {debugLog.slice(-5).map((entry, index) => (
+            <div key={index} className="log-entry">
+              <span className="log-time">{entry.timestamp}</span>
+              <span className="log-message">{entry.message}</span>
+            </div>
+          ))}
+        </div>
+      </>
+    );
+  };
+
   if (!isInitialized) {
     return (
       <div className="popup-container">
         <div className="loading">
           <span>🔍</span>
-          <p>检测平台中...</p>
+          <p>初始化中...</p>
         </div>
       </div>
     );
   }
-
-  const config = PLATFORM_CONFIGS[currentPlatform];
-  const buttonConfig = getButtonConfig(currentPlatform, buttonState);
 
   // 如果正在处理，显示进度条界面
   if (isProcessing) {
@@ -369,7 +697,7 @@ function App() {
       <div className="popup-container">
         <div className="progress-container">
           <div className="progress-icon">💾</div>
-          <div className="progress-text">上传中... {Math.round(progress)}%</div>
+          <div className="progress-text">准备中... {Math.round(progress)}%</div>
           <div className="progress-bar">
             <div 
               className="progress-fill" 
@@ -383,45 +711,7 @@ function App() {
 
   return (
     <div className="popup-container">
-      {/* 平台信息显示 */}
-      <div className="platform-header">
-        <span className="platform-icon">{config.icon}</span>
-        <div className="platform-info">
-          <h2>{currentPlatform}</h2>
-          <p>{config.description}</p>
-        </div>
-      </div>
-
-      {/* 一键操作按钮 */}
-      <button 
-        className={`main-action-btn ${buttonConfig.className}`}
-        onClick={handleButtonClick}
-        disabled={buttonConfig.disabled && buttonState === 'processing'}
-      >
-        {buttonState === 'processing' && <span className="loading-spinner">⏳</span>}
-        {buttonConfig.text}
-      </button>
-
-      {/* 状态日志区域 - 只显示最近5条 */}
-      <div className="log-area">
-        {debugLog.slice(-5).map((entry, index) => (
-          <div key={index} className="log-entry">
-            <span className="log-time">{entry.timestamp}</span>
-            <span className="log-message">{entry.message}</span>
-          </div>
-        ))}
-      </div>
-
-      {/* 注释掉复制日志按钮，保留代码
-      {debugLog.length > 0 && (
-        <button 
-          onClick={copyDebugLog}
-          className="secondary-btn copy-btn"
-        >
-          📋 复制日志
-        </button>
-      )}
-      */}
+      {renderAuthUI()}
     </div>
   );
 }

@@ -1,7 +1,8 @@
-export type Platform = "Claude" | "ChatGPT" | "Poe" | "Kimi" | "Unknown";
+export type Platform = "Claude" | "ChatGPT" | "Poe" | "Kimi" | "Gemini" | "Unknown";
 
 export function detectPlatform(): Platform {
   if (detectKimi()) return "Kimi";
+  if (detectGemini()) return "Gemini";
   if (document.querySelector("div.font-claude-message")) return "Claude";
   if (window.location.hostname === "chatgpt.com") return "ChatGPT";
   if (document.querySelector("div.ChatMessagesView_messagePair__ZEXUz"))
@@ -21,6 +22,13 @@ export function detectKimi(): boolean {
   });
 
   return isKimiDomain;
+}
+
+export function detectGemini(): boolean {
+  return window.location.hostname.includes('gemini.google.com') ||
+         window.location.hostname.includes('bard.google.com') ||
+         document.querySelector('.user-query-bubble-with-background') !== null ||
+         document.querySelector('.markdown.markdown-main-panel') !== null;
 }
 
 export function isKimiChatReady(): boolean {
