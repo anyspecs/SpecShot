@@ -20,6 +20,104 @@ export default defineContentScript({
     '*://bard.google.com/*'
   ],
   main() {
+    // 初始化时立即检测并记录平台
+    let currentPlatform = detectPlatform();
+    let lastUrl = window.location.href;
+    
+    console.log('🚀 Content script初始化:', {
+      url: lastUrl,
+      platform: currentPlatform,
+      timestamp: new Date().toISOString()
+    });
+    
+    // 向background script报告当前平台状态
+    const reportPlatformChange = (platform: string) => {
+      console.log('📡 向background报告平台变化:', platform);
+      try {
+        browser.runtime.sendMessage({
+          action: 'platformChanged',
+          platform: platform,
+          url: window.location.href
+        }).catch(err => {
+          console.log('Background可能还未准备就绪:', err.message);
+        });
+      } catch (e) {
+        console.log('发送平台变化消息失败:', e);
+      }
+    };
+    
+    // 初始报告
+    reportPlatformChange(currentPlatform);
+    
+    const checkUrlAndPlatformChange = () => {
+      const currentUrl = window.location.href;
+      const newPlatform = detectPlatform();
+      
+      if (currentUrl !== lastUrl || newPlatform !== currentPlatform) {
+        console.log('🔄 检测到变化:', {
+          urlChanged: currentUrl !== lastUrl,
+          platformChanged: newPlatform !== currentPlatform,
+          oldUrl: lastUrl,
+          newUrl: currentUrl,
+          oldPlatform: currentPlatform,
+          newPlatform: newPlatform
+        });
+        
+        lastUrl = currentUrl;
+        currentPlatform = newPlatform;
+        
+        // 报告变化
+        reportPlatformChange(newPlatform);
+      }
+    };
+    
+    // 监听浏览器导航事件
+    window.addEventListener('popstate', () => {
+      console.log('🔙 PopState事件触发');
+      setTimeout(checkUrlAndPlatformChange, 100);
+    });
+    
+    // 监听pushState和replaceState
+    const originalPushState = history.pushState;
+    const originalReplaceState = history.replaceState;
+    
+    history.pushState = function(...args) {
+      originalPushState.apply(history, args);
+      console.log('➡️ PushState事件触发');
+      setTimeout(checkUrlAndPlatformChange, 100);
+    };
+    
+    history.replaceState = function(...args) {
+      originalReplaceState.apply(history, args);
+      console.log('🔄 ReplaceState事件触发');
+      setTimeout(checkUrlAndPlatformChange, 100);
+    };
+    
+    // 使用MutationObserver监听DOM变化（适用于SPA）
+    const observer = new MutationObserver(() => {
+      checkUrlAndPlatformChange();
+    });
+    
+    // 等待DOM加载完成后开始观察
+    if (document.body) {
+      observer.observe(document.body, { 
+        childList: true, 
+        subtree: true 
+      });
+    } else {
+      document.addEventListener('DOMContentLoaded', () => {
+        if (document.body) {
+          observer.observe(document.body, { 
+            childList: true, 
+            subtree: true 
+          });
+        }
+      });
+    }
+    
+    // 定期检查变化（作为备用方案）
+    setInterval(checkUrlAndPlatformChange, 2000);
+
     async function extractConversation(format: string) {
       const platform = detectPlatform();
       

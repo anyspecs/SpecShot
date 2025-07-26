@@ -1,15 +1,88 @@
 // 移除REST上传相关import，改为纯离线流程
 
 export default defineBackground(() => {
-  const SUPPORTED_URLS = ['chatgpt.com', 'claude.ai', 'poe.com', 'kimi.com', 'kimi.moonshot.cn', 'www.kimi.com'];
+  const SUPPORTED_URLS = ['chatgpt.com', 'claude.ai', 'poe.com', 'kimi.com', 'kimi.moonshot.cn', 'www.kimi.com', 'gemini.google.com', 'bard.google.com'];
   
   // 全局下载检测服务
   let isWaitingForDownload = false;
   let downloadWaitTimeout: NodeJS.Timeout | null = null;
   let currentPlatform: string = 'Unknown';
   
+  // 缓存每个tab的平台信息
+  const tabPlatformCache = new Map<number, string>();
+  
   // 初始化下载监听器
   setupDownloadDetection();
+  
+  // 初始化时清除默认popup设置
+  browser.action.setPopup({ popup: '' });
+
+  // 处理图标点击事件
+  browser.action.onClicked.addListener(async (tab) => {
+    console.log('🖱️ 插件图标被点击, tab:', tab.id);
+    
+    if (!tab.id) {
+      console.error('❌ 无效的tab ID');
+      return;
+    }
+    
+    try {
+      // 首先尝试从缓存获取平台信息
+      let platform = tabPlatformCache.get(tab.id) || 'Unknown';
+      console.log('📋 缓存中的平台信息:', platform);
+      
+      // 如果缓存中没有或者是Unknown，则重新检测
+      if (platform === 'Unknown') {
+        console.log('🔍 重新检测平台...');
+        try {
+          const platformResponse = await browser.tabs.sendMessage(tab.id, { action: "detectPlatform" });
+          platform = platformResponse?.platform || 'Unknown';
+          console.log('🔍 检测结果:', platform);
+          
+          // 更新缓存
+          tabPlatformCache.set(tab.id, platform);
+        } catch (detectError) {
+          console.error('❌ 平台检测失败:', detectError);
+          platform = 'Unknown';
+        }
+      }
+      
+      if (platform === 'Unknown') {
+        // 如果检测不到平台，显示popup进行平台检测
+        console.log('❓ 未知平台，显示popup');
+        browser.action.setPopup({ tabId: tab.id, popup: '/popup.html' });
+        browser.action.openPopup();
+        return;
+      }
+      
+      // 检测到支持的平台，直接执行剪存操作
+      console.log('✅ 支持的平台，开始直接剪存:', platform);
+      currentPlatform = platform;
+      
+      // 执行剪存操作
+      const extractResponse = await browser.tabs.sendMessage(tab.id, { 
+        action: "extract", 
+        format: "markdown" 
+      });
+      
+      if (extractResponse?.error) {
+        // 如果出错，显示popup进行错误处理
+        console.log('❌ 剪存失败，显示popup:', extractResponse.error);
+        browser.action.setPopup({ tabId: tab.id, popup: '/popup.html' });
+        browser.action.openPopup();
+      } else {
+        // 成功则开始监听下载
+        console.log('🎉 剪存成功，开始监听下载');
+        startDownloadWatch();
+      }
+      
+    } catch (error) {
+      console.error('❌ 图标点击处理失败:', error);
+      // 出错时显示popup
+      browser.action.setPopup({ tabId: tab.id, popup: '/popup.html' });
+      browser.action.openPopup();
+    }
+  });
 
   browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     if (changeInfo.status === 'complete' && tab.url) {
@@ -17,12 +90,60 @@ export default defineBackground(() => {
         browser.action.enable(tabId);
       } else {
         browser.action.disable(tabId);
+        // 如果不是支持的URL，清除缓存
+        tabPlatformCache.delete(tabId);
       }
+    }
+    
+    // URL变化时重置popup设置和清除缓存
+    if (changeInfo.url) {
+      console.log('🔄 URL变化，重置状态:', {
+        tabId,
+        newUrl: changeInfo.url,
+        oldPlatform: tabPlatformCache.get(tabId)
+      });
+      
+      // 清除该tab的平台缓存，强制重新检测
+      tabPlatformCache.delete(tabId);
+      
+      // 重置popup设置
+      browser.action.setPopup({ tabId, popup: '' });
     }
   });
 
+  // 监听tab关闭事件，清理缓存
+  browser.tabs.onRemoved.addListener((tabId) => {
+    console.log('🗑️ Tab关闭，清理缓存:', tabId);
+    tabPlatformCache.delete(tabId);
+  });
+
   browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === "extract") {
+    if (request.action === "platformChanged") {
+      // 处理来自content script的平台变化通知
+      const tabId = sender.tab?.id;
+      if (tabId) {
+        console.log('📡 收到平台变化通知:', {
+          tabId,
+          platform: request.platform,
+          url: request.url
+        });
+        
+        // 更新缓存
+        tabPlatformCache.set(tabId, request.platform);
+        
+        // 重置该tab的popup设置
+        browser.action.setPopup({ tabId, popup: '' });
+        
+        console.log('💾 已更新tab缓存:', {
+          tabId,
+          platform: request.platform,
+          cacheSize: tabPlatformCache.size
+        });
+      }
+      sendResponse({ success: true });
+      return true;
+      
+    } else if (request.action === "extract") {
       browser.tabs.query({ active: true, currentWindow: true }).then(tabs => {
         if (tabs[0]?.id) {
           browser.tabs.sendMessage(tabs[0].id, { action: "extract", format: request.format })
@@ -164,12 +285,14 @@ export default defineBackground(() => {
       case 'ChatGPT':
       case 'Claude':
       case 'Poe':
+      case 'Gemini':
         return (
           filename.endsWith('.md') ||
           filename.endsWith('.txt') ||
           filename.includes('conversation') ||
           filename.includes('chat') ||
-          filename.includes('export')
+          filename.includes('export') ||
+          filename.includes('gemini')
         );
         
       default:
