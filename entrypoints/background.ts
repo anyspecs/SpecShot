@@ -341,9 +341,9 @@ export default defineBackground(() => {
       console.log('📋 文件路径:', downloadItem.filename);
       
       // 直接跳转到processor页面
-      const processorTab = await browser.tabs.create({ 
-        url: 'http://localhost:3000/processor',
-        active: true 
+      const processorTab = await browser.tabs.create({
+        url: "https://hub.anyspecs.cn/processor",
+        active: true,
       });
       
       console.log('🌐 已跳转到processor页面');
