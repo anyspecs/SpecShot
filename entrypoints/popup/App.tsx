@@ -7,14 +7,14 @@ import {
   type Platform,
   type ButtonState,
 } from "./platform-config";
-import { AuthManager, type UserInfo } from "../utils/auth-manager";
+// 移除AuthManager import，不再需要认证功能
 
 interface LogEntry {
   timestamp: string;
   message: string;
 }
 
-type AuthState = "loading" | "authenticated" | "unauthenticated";
+// 移除AuthState类型定义
 
 function App() {
   const [currentPlatform, setCurrentPlatform] = useState<Platform>("Unknown");
@@ -24,11 +24,7 @@ function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
 
-  // 认证相关状态
-  const [authState, setAuthState] = useState<AuthState>("loading");
-  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string>("");
-  const [retryCount, setRetryCount] = useState<number>(0);
+  // 移除认证相关状态
 
   const log = (message: string) => {
     const logEntry: LogEntry = {
@@ -61,33 +57,10 @@ function App() {
     }
   };
 
-  // 检查认证状态
-  const checkAuthStatus = async () => {
-    try {
-      log("检查认证状态...");
-      const status = await AuthManager.checkAuthStatus();
-
-      if (status === "authenticated") {
-        const authData = await AuthManager.getAuthData();
-        setAuthState("authenticated");
-        setUserInfo(authData.userInfo);
-        log(`已认证用户: ${authData.userInfo?.name}`);
-      } else {
-        setAuthState("unauthenticated");
-        log("用户未认证");
-      }
-    } catch (error) {
-      console.error("Auth status check failed:", error);
-      setAuthState("unauthenticated");
-      handleAuthError(error, "认证状态检查");
-    }
-  };
+  // 移除认证状态检查
 
   const initializePopup = async () => {
     log("初始化扩展...");
-
-    // 首先检查认证状态
-    await checkAuthStatus();
 
     // 检测当前平台
     const platform = await detectCurrentPlatform();
@@ -99,7 +72,7 @@ function App() {
 
     if (platform === "Unknown") {
       log("请在ChatGPT、Claude、Poe或Kimi页面使用此扩展");
-    } else if (authState === "authenticated") {
+    } else {
       log(`准备执行: ${config.description}`);
     }
 
@@ -159,31 +132,11 @@ function App() {
     }
   };
 
-  // 处理登录跳转 - 简化为纯网页登录
-  const handleLoginRedirect = async () => {
-    try {
-      log("🔐 跳转到网页登录...");
-
-      // 直接跳转到网页登录
-      chrome.tabs.create({
-        url: "http://localhost:3000/login?from=extension",
-        active: true,
-      });
-
-      // 关闭当前popup
-      window.close();
-    } catch (error) {
-      console.error("Login redirect failed:", error);
-      handleAuthError(error, "登录跳转");
-    }
-  };
+  // 移除登录跳转逻辑
 
   // 修改后的文件处理逻辑（发送数据到processor页面）
   const handleFileUpload = async (fileData: any, platform: string) => {
-    if (authState !== "authenticated") {
-      handleLoginRedirect();
-      return;
-    }
+    // 移除认证检查，直接处理
 
     setIsProcessing(true);
     setProgress(0);
@@ -351,10 +304,57 @@ function App() {
   };
 
   const handleOneClickAction = async () => {
-    // 检查认证状态
-    if (authState !== "authenticated") {
-      handleLoginRedirect();
-      return;
+    // 恢复原有的一键操作逻辑，但跳过认证检查
+    const config = PLATFORM_CONFIGS[currentPlatform];
+
+    setButtonState("processing");
+    clearLogs();
+    log(`执行${config.description}...`);
+
+    try {
+      let response;
+
+      switch (config.action) {
+        case "extract":
+          response = await performDirectExtraction(
+            currentPlatform,
+            config.format!
+          );
+          break;
+
+        case "automate":
+          response = await performKimiAutomation();
+          break;
+
+        case "detect":
+          await performPlatformDetection();
+          setButtonState("success");
+          return;
+      }
+
+      // 处理文件上传或跳转
+      if (response && response.fileData) {
+        await handleFileUpload(response.fileData, currentPlatform);
+      } else if (response && response.automationMode && response.success) {
+        // Kimi自动化成功，直接跳转到processor页面
+        log("🎉 Kimi自动化完成，跳转到processor页面...");
+        await chrome.tabs.create({
+          url: "https://hub.anyspecs.cn/processor",
+          active: true,
+        });
+
+        // 关闭popup
+        setTimeout(() => {
+          window.close();
+        }, 500);
+      }
+
+      setButtonState("success");
+    } catch (error: any) {
+      setButtonState("error");
+      setIsProcessing(false);
+      setProgress(0);
+      handleError(error);
     }
 
     const config = PLATFORM_CONFIGS[currentPlatform];
@@ -410,39 +410,9 @@ function App() {
     }
   };
 
-  // 认证错误处理
-  const handleAuthError = (error: any, context: string) => {
-    console.error(`Auth error in ${context}:`, error);
+  // 移除认证错误处理
 
-    let userMessage = "";
-    if (error.message?.includes("network")) {
-      userMessage = "网络连接失败，请检查网络后重试";
-    } else if (error.message?.includes("token")) {
-      userMessage = "认证令牌无效，请重新登录";
-    } else if (error.message?.includes("permission")) {
-      userMessage = "权限不足，请联系管理员";
-    } else {
-      userMessage = `${context}失败，请重试`;
-    }
-
-    setErrorMessage(userMessage);
-    log(`❌ ${userMessage}`);
-
-    // 自动清除错误消息
-    setTimeout(() => setErrorMessage(""), 5000);
-  };
-
-  // 重试机制
-  const handleRetry = async () => {
-    if (retryCount >= 3) {
-      setErrorMessage("重试次数过多，请稍后再试");
-      return;
-    }
-
-    setRetryCount((prev) => prev + 1);
-    setErrorMessage("");
-    await checkAuthStatus();
-  };
+  // 移除重试机制
 
   const handleError = (error: any) => {
     log(`❌ 操作失败: ${error.message || "未知错误"}`);
@@ -500,11 +470,7 @@ function App() {
   };
 
   const handleButtonClick = () => {
-    if (authState === "unauthenticated") {
-      handleLoginRedirect();
-      return;
-    }
-
+    // 恢复原有的按钮点击逻辑，但移除认证检查
     if (buttonState === "error" || buttonState === "success") {
       // 重试逻辑
       setButtonState("idle");
@@ -514,17 +480,7 @@ function App() {
     }
   };
 
-  // 登出处理
-  const handleLogout = async () => {
-    try {
-      await AuthManager.logout();
-      setAuthState("unauthenticated");
-      setUserInfo(null);
-      log("🔓 已登出");
-    } catch (error) {
-      console.error("Logout failed:", error);
-    }
-  };
+  // 移除登出处理
 
   useEffect(() => {
     initializePopup();
@@ -742,7 +698,7 @@ function App() {
     );
   }
 
-  return <div className="popup-container">{renderAuthUI()}</div>;
+  return <div className="popup-container">{renderMainUI()}</div>;
 }
 
 export default App;

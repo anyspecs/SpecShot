@@ -107,8 +107,51 @@
 - **点击策略**: 4种点击方法递进尝试，增加详细成功/失败日志
 - **DOM结构适配**: 基于实际HTML结构 `<div class="simple-button main-button"><svg name="Document"><span>导出 word</span></div>`
 
+### 最新完成 - 生产环境配置调整 🌐
+✅ **localhost→生产环境替换完成**: 4处配置全部更新
+  - AuthManager API_BASE: `localhost:5000` → `https://hub.anyspecs.cn:8888/api`
+  - JWT网页查询: `localhost:3000` → `https://hub.anyspecs.cn`
+  - 登录跳转: `localhost:3000/login` → `https://hub.anyspecs.cn/login?from=extension`
+  - 权限配置: manifest permissions → 生产域名权限
+
+### 最新完成 - 登录状态检测问题修复 🔐
+✅ **API端点配置修复**: 从`8888`端口改为标准`443`端口
+✅ **token查找策略扩展**: 从4种key扩展到16种常见key名称
+✅ **存储位置扩展**: 同时检查localStorage和sessionStorage
+✅ **JWT验证增强**: 增加详细日志和错误分类处理
+✅ **权限配置优化**: 移除无效的8888端口权限
+
+#### 发现的关键问题
+- **API端点错误**: 使用了错误的端口8888，正确应为443
+- **CORS配置限制**: 服务器只允许`localhost:3000`，需要允许扩展origin
+- **token存储多样性**: 扩展了16种可能的token key名称
+- **调试信息缺失**: 增加了详细的日志输出用于问题诊断
+
+#### 技术改进
+- **端口修复**: `https://hub.anyspecs.cn:8888/api` → `https://hub.anyspecs.cn/api`
+- **key扩展**: 支持`authToken`、`jwtToken`、`SavedToken`等16种常见命名
+- **双重存储**: localStorage + sessionStorage全覆盖检查
+- **错误分类**: 401/403/5xx等HTTP状态码详细处理
+
+### 最新完成 - 扩展简化重构 ⚡
+✅ **完全移除登录认证逻辑**: 应用户要求临时移除认证功能
+  - 移除AuthManager import和所有认证相关状态管理
+  - 简化popup界面，移除认证UI组件和错误处理
+  - 修改按钮点击行为：直接跳转到 `https://hub.anyspecs.cn/processor`
+  - 移除JWT验证、用户状态检查、重试机制等复杂逻辑
+  - 删除登录跳转、登出处理等认证相关功能
+
+#### 简化效果
+- **代码行数减少**: 移除约150行认证相关代码
+- **用户体验**: 点击扩展→直接跳转processor页面
+- **维护成本**: 无需处理认证状态、错误处理等复杂场景
+- **部署简化**: 无需后端API配置，纯前端跳转逻辑
+
 ### 下一步工作  
-- 完整功能测试（各平台一键操作）
-- Kimi自动化流程实际验证  
-- 构建配置优化
-- 扩展打包与发布准备
+- [x] 替换所有localhost配置为生产域名
+- [x] 修复登录状态检测API端点问题
+- [x] 移除登录认证逻辑，简化为直接跳转
+- [ ] 完整功能测试（各平台一键操作）
+- [ ] Kimi自动化流程实际验证  
+- [ ] 构建配置优化
+- [ ] 扩展打包与发布准备

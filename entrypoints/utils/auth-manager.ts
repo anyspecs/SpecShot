@@ -21,7 +21,7 @@ export interface JWTValidationResult {
 }
 
 export class AuthManager {
-  private static readonly API_BASE = 'http://localhost:5000/api';
+  private static readonly API_BASE = 'https://hub.anyspecs.cn/api';
   
   /**
    * 保存认证信息到chrome.storage.local
@@ -57,6 +57,7 @@ export class AuthManager {
    */
   static async validateJWT(token: string): Promise<JWTValidationResult> {
     try {
+      console.log('Validating JWT token...');
       const response = await fetch(`${AuthManager.API_BASE}/auth/validate`, {
         method: 'GET',
         headers: { 
@@ -65,8 +66,11 @@ export class AuthManager {
         }
       });
       
+      console.log('JWT validation response status:', response.status);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('JWT validation successful, user:', data.user?.name);
         return {
           valid: true,
           user: {
@@ -77,11 +81,36 @@ export class AuthManager {
           }
         };
       } else {
-        return { valid: false, error: 'Token validation failed' };
+        const errorData = await response.text();
+        console.log('JWT validation failed:', response.status, errorData);
+        
+        let errorMessage = 'Token validation failed';
+        if (response.status === 401) {
+          errorMessage = 'Token expired or invalid';
+        } else if (response.status === 403) {
+          errorMessage = 'Token access denied';
+        } else if (response.status >= 500) {
+          errorMessage = 'Server error during validation';
+        }
+        
+        return { valid: false, error: errorMessage };
       }
     } catch (error) {
-      console.error('JWT validation failed:', error);
-      return { valid: false, error: error instanceof Error ? error.message : 'Network error' };
+      console.error('JWT validation network error:', error);
+      
+      let errorMessage = 'Network error';
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        errorMessage = 'Unable to connect to authentication server';
+      } else if (error instanceof Error) {
+        // CORS错误特殊处理
+        if (error.message.includes('CORS') || error.message.includes('cross-origin')) {
+          errorMessage = 'CORS policy blocked the request - server needs to allow extension origin';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      return { valid: false, error: errorMessage };
     }
   }
   
@@ -123,7 +152,7 @@ export class AuthManager {
    */
   static async getJWTFromWebpage(): Promise<string | null> {
     try {
-      const tabs = await chrome.tabs.query({url: "http://localhost:3000/*"});
+      const tabs = await chrome.tabs.query({url: "https://hub.anyspecs.cn/*"});
       if (tabs.length === 0) {
         console.log('No web app tabs found');
         return null;
@@ -132,11 +161,33 @@ export class AuthManager {
       const results = await chrome.scripting.executeScript({
         target: { tabId: tabs[0].id! },
         function: () => {
-          // 尝试多个可能的token key名称
-          return localStorage.getItem('authToken') || 
-                 localStorage.getItem('jwt_token') || 
-                 localStorage.getItem('access_token') ||
-                 localStorage.getItem('token');
+          // 尝试多个可能的token key名称（按常见程度排序）
+          const possibleKeys = [
+            'authToken', 'access_token', 'token', 'jwt_token',
+            'jwtToken', 'SavedToken', 'accessToken', 'auth_token',
+            'bearer_token', 'user_token', 'login_token', 'session_token',
+            'authorization_token', 'auth', 'jwt', 'bearer'
+          ];
+          
+          for (const key of possibleKeys) {
+            const token = localStorage.getItem(key);
+            if (token) {
+              console.log(`Found token with key: ${key}`);
+              return token;
+            }
+          }
+          
+          // 也尝试sessionStorage
+          for (const key of possibleKeys) {
+            const token = sessionStorage.getItem(key);
+            if (token) {
+              console.log(`Found token in sessionStorage with key: ${key}`);
+              return token;
+            }
+          }
+          
+          console.log('No token found in localStorage or sessionStorage');
+          return null;
         }
       });
       
@@ -171,7 +222,7 @@ export class AuthManager {
     
     // 尝试清除网页存储（如果网页还在的话）
     try {
-      const tabs = await chrome.tabs.query({url: "http://localhost:3000/*"});
+      const tabs = await chrome.tabs.query({url: "https://hub.anyspecs.cn/*"});
       if (tabs.length > 0) {
         await chrome.scripting.executeScript({
           target: { tabId: tabs[0].id! },

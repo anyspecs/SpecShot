@@ -14,8 +14,7 @@ export default defineConfig({
     host_permissions: [
       'http://127.0.0.1:4999/*',
       'http://localhost:4999/*',
-      'http://localhost:3000/*',        // 前端网站
-      'http://localhost:5000/*'         // 后端API
+      'https://hub.anyspecs.cn/*'       // 前端网站和API端点
     ]
   }
 });
