@@ -1,0 +1,147 @@
+# 隐私政策 / Privacy Policy
+
+## 中文版
+
+### AI Chat History Extractor - 隐私政策
+
+**最后更新日期：2025 年 1 月**
+
+#### 1. 概述
+
+AI Chat History Extractor（以下简称"本扩展"）是一个浏览器扩展，旨在帮助用户从 AI 聊天平台提取和导出对话历史。我们非常重视您的隐私，本政策说明了我们如何处理您的信息。
+
+#### 2. 信息收集
+
+**我们不收集任何个人信息。**
+
+本扩展：
+
+- ✅ 仅在您主动使用时访问当前网页内容
+- ✅ 所有数据处理都在您的本地设备上进行
+- ✅ 不向任何服务器发送您的对话内容
+- ✅ 不存储您的个人信息或对话记录
+
+#### 3. 权限说明
+
+本扩展请求以下浏览器权限，仅用于核心功能：
+
+- **`activeTab`**: 仅在您主动使用扩展时访问当前标签页内容
+- **`tabs`**: 检测您是否在支持的网站上，以启用/禁用扩展图标
+- **`downloads`**: 将提取的对话保存为文件到您的下载文件夹
+
+#### 4. 数据处理
+
+- **本地处理**: 所有对话提取和格式转换都在您的浏览器中本地完成
+- **无数据传输**: 您的对话内容永远不会离开您的设备
+- **即时处理**: 提取的内容直接下载到您的设备，不经过任何中间服务器
+
+#### 5. 支持的网站
+
+本扩展仅在以下网站上工作：
+
+- ChatGPT (chatgpt.com)
+- Claude AI (claude.ai)
+- Poe (poe.com)
+
+#### 6. 数据安全
+
+- 您的对话数据完全保留在您的本地设备上
+- 我们无法访问、查看或存储您的任何对话内容
+- 导出的文件直接保存到您的本地下载文件夹
+
+#### 7. 第三方服务
+
+本扩展不使用任何第三方分析服务、广告网络或数据收集工具。
+
+#### 8. 政策更新
+
+如果我们更新此隐私政策，我们会在扩展更新中通知用户。
+
+#### 9. 联系我们
+
+如果您对此隐私政策有任何疑问，请通过 GitHub Issues 联系我们。
+
+---
+
+## English Version
+
+### AI Chat History Extractor - Privacy Policy
+
+**Last Updated: January 2025**
+
+#### 1. Overview
+
+AI Chat History Extractor (the "Extension") is a browser extension designed to help users extract and export conversation history from AI chat platforms. We take your privacy seriously and this policy explains how we handle your information.
+
+#### 2. Information Collection
+
+**We do not collect any personal information.**
+
+This extension:
+
+- ✅ Only accesses current webpage content when you actively use it
+- ✅ Processes all data locally on your device
+- ✅ Does not send your conversation content to any servers
+- ✅ Does not store your personal information or chat records
+
+#### 3. Permissions Explained
+
+This extension requests the following browser permissions for core functionality only:
+
+- **`activeTab`**: Access current tab content only when you actively use the extension
+- **`tabs`**: Detect if you're on supported websites to enable/disable extension icon
+- **`downloads`**: Save extracted conversations as files to your downloads folder
+
+#### 4. Data Processing
+
+- **Local Processing**: All conversation extraction and format conversion happens locally in your browser
+- **No Data Transmission**: Your conversation content never leaves your device
+- **Instant Processing**: Extracted content is directly downloaded to your device without going through any intermediate servers
+
+#### 5. Supported Websites
+
+This extension only works on the following websites:
+
+- ChatGPT (chatgpt.com)
+- Claude AI (claude.ai)
+- Poe (poe.com)
+
+#### 6. Data Security
+
+- Your conversation data remains entirely on your local device
+- We cannot access, view, or store any of your conversation content
+- Exported files are saved directly to your local downloads folder
+
+#### 7. Third-Party Services
+
+This extension does not use any third-party analytics services, advertising networks, or data collection tools.
+
+#### 8. Policy Updates
+
+If we update this privacy policy, we will notify users in extension updates.
+
+#### 9. Contact Us
+
+If you have any questions about this privacy policy, please contact us through GitHub Issues.
+
+---
+
+## 技术实现说明 / Technical Implementation Notes
+
+### 数据流向 / Data Flow
+
+```
+用户网页内容 → 本地DOM解析 → 本地格式转换 → 本地文件下载
+User webpage → Local DOM parsing → Local format conversion → Local file download
+```
+
+### 权限最小化原则 / Principle of Least Privilege
+
+- 仅请求必要的最小权限
+- 不请求持久存储权限
+- 不请求网络访问权限
+- 不请求跨域访问权限
+
+### 开源透明 / Open Source Transparency
+
+本扩展的源代码完全开源，用户可以审查所有代码以验证隐私承诺。
