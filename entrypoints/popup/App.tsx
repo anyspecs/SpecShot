@@ -356,58 +356,6 @@ function App() {
       setProgress(0);
       handleError(error);
     }
-
-    const config = PLATFORM_CONFIGS[currentPlatform];
-
-    setButtonState("processing");
-    clearLogs();
-    log(`执行${config.description}...`);
-
-    try {
-      let response;
-
-      switch (config.action) {
-        case "extract":
-          response = await performDirectExtraction(
-            currentPlatform,
-            config.format!
-          );
-          break;
-
-        case "automate":
-          response = await performKimiAutomation();
-          break;
-
-        case "detect":
-          await performPlatformDetection();
-          setButtonState("success");
-          return;
-      }
-
-      // 处理文件上传或跳转
-      if (response && response.fileData) {
-        await handleFileUpload(response.fileData, currentPlatform);
-      } else if (response && response.automationMode && response.success) {
-        // Kimi自动化成功，直接跳转到processor页面
-        log("🎉 Kimi自动化完成，跳转到processor页面...");
-        await chrome.tabs.create({
-          url: "https://hub.anyspecs.cn/processor",
-          active: true,
-        });
-
-        // 关闭popup
-        setTimeout(() => {
-          window.close();
-        }, 500);
-      }
-
-      setButtonState("success");
-    } catch (error: any) {
-      setButtonState("error");
-      setIsProcessing(false);
-      setProgress(0);
-      handleError(error);
-    }
   };
 
   // 移除认证错误处理
