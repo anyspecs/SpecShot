@@ -5,6 +5,7 @@ import { extractChatGPTConversation } from './llm/chatgpt';
 import { extractClaudeConversation } from './llm/claude';
 import { extractPoeConversation } from './llm/poe';
 import { extractGeminiConversation } from './llm/gemini';
+import { extractDoubaoConversation } from './llm/doubao';
 import { KimiAutomation } from './llm/kimi';
 import { detectPlatform, type Platform } from './llm/platform';
 
@@ -17,7 +18,9 @@ export default defineContentScript({
     '*://kimi.com/*',
     '*://www.kimi.com/*',
     '*://gemini.google.com/*',
-    '*://bard.google.com/*'
+    '*://bard.google.com/*',
+    '*://doubao.com/*',
+    '*://www.doubao.com/*'
   ],
   main() {
     // 初始化时立即检测并记录平台
@@ -223,6 +226,8 @@ export default defineContentScript({
           return extractPoeConversation(extractContent);
         case 'Gemini':
           return extractGeminiConversation(extractContent);
+        case 'Doubao':
+          return extractDoubaoConversation(extractContent);
         default:
           return [];
       }
