@@ -2,7 +2,7 @@ import { htmlToMarkdown, formatMarkdownMetadata, formatMarkdownMessage, download
 import { simplifyHtml, formatHtmlMetadata, formatHtmlMessage, downloadHtml } from './export/html';
 import { htmlToPlaintext, formatPlaintextMetadata, formatPlaintextMessage, downloadPlaintext } from './export/text';
 import { extractChatGPTConversation } from './llm/chatgpt';
-import { extractClaudeConversation } from './llm/claude';
+import { extractClaudeConversation, extractClaudeConversationSync, downloadClaudeImages, getClaudeImageInfo } from './llm/claude';
 import { extractPoeConversation } from './llm/poe';
 import { extractGeminiConversation } from './llm/gemini';
 import { extractDoubaoConversation } from './llm/doubao';
@@ -29,9 +29,36 @@ export default defineContentScript({
     
     console.log('🚀 Content script初始化:', {
       url: lastUrl,
+      hostname: window.location.hostname,
       platform: currentPlatform,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      userAgent: navigator.userAgent.substring(0, 100)
     });
+    
+    // 如果是Claude但检测失败，记录详细信息
+    if (window.location.hostname.includes('claude.ai') && currentPlatform === 'Unknown') {
+      console.warn('⚠️ Claude平台检测失败，开始诊断:');
+      console.log('页面标题:', document.title);
+      console.log('DOM状态:', document.readyState);
+      console.log('Body存在:', !!document.body);
+      
+      // 检查常见的Claude元素
+      const selectors = [
+        'div.font-claude-message',
+        'div.font-user-message', 
+        '[data-testid="user-message"]',
+        'div[class*="message"]'
+      ];
+      
+      selectors.forEach(selector => {
+        try {
+          const elements = document.querySelectorAll(selector);
+          console.log(`选择器 "${selector}":`, elements.length, '个元素');
+        } catch (e) {
+          console.log(`选择器 "${selector}" 失败:`, e.message);
+        }
+      });
+    }
     
     // 向background script报告当前平台状态
     const reportPlatformChange = (platform: string) => {
@@ -130,7 +157,7 @@ export default defineContentScript({
       }
       
       // 其他平台使用直接提取模式
-      return handleDirectExtraction(platform, format);
+      return await handleDirectExtraction(platform, format);
     }
 
     async function handleKimiAutomation() {
@@ -156,7 +183,7 @@ export default defineContentScript({
       }
     }
 
-    function handleDirectExtraction(platform: Platform, format: string) {
+    async function handleDirectExtraction(platform: Platform, format: string) {
       const logs: string[] = [];
       const log = (message: string) => {
         console.log(message);
@@ -167,7 +194,8 @@ export default defineContentScript({
         log(`Platform detected: ${platform}`);
         log(`Format selected: ${format}`);
         
-        const messages = extractConversationFromPlatform(platform, format);
+        // 支持异步消息提取
+        const messages = await extractConversationFromPlatform(platform, format);
         
         if (messages.length > 0) {
           const content = formatConversation(platform, messages, format);
@@ -202,7 +230,7 @@ export default defineContentScript({
       }
     }
 
-    function extractConversationFromPlatform(platform: Platform, format: string): [string, string][] {
+    async function extractConversationFromPlatform(platform: Platform, format: string): Promise<[string, string][]> {
       const extractContent = (element: Element | null) => {
         if (!element) return '';
         switch (format) {
@@ -221,7 +249,11 @@ export default defineContentScript({
         case 'ChatGPT':
           return extractChatGPTConversation(extractContent);
         case 'Claude':
-          return extractClaudeConversation(extractContent);
+          // 使用异步版本进行base64图片处理
+          return await extractClaudeConversation(extractContent, { 
+            includeImages: true, 
+            downloadImages: false 
+          });
         case 'Poe':
           return extractPoeConversation(extractContent);
         case 'Gemini':
@@ -274,18 +306,94 @@ export default defineContentScript({
     }
 
     browser.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
+      console.log('📨 收到消息:', request.action, '当前平台:', detectPlatform());
+      
       if (request.action === "extract") {
         try {
+          const currentPlatform = detectPlatform();
+          console.log('📝 开始提取对话, 平台:', currentPlatform);
+          
+          if (currentPlatform === 'Unknown') {
+            sendResponse({
+              error: `无法识别当前平台，URL: ${window.location.href}`,
+              logs: [
+                `当前URL: ${window.location.href}`,
+                `页面标题: ${document.title}`,
+                `用户代理: ${navigator.userAgent.substring(0, 50)}...`
+              ]
+            });
+            return true;
+          }
+          
           const result = await extractConversation(request.format);
+          console.log('✅ 提取完成:', result);
           sendResponse(result);
         } catch (error: any) {
+          console.error('❌ 提取失败:', error);
           sendResponse({ 
             error: `处理失败: ${error.message}`,
-            logs: [`Error: ${error.message}`]
+            logs: [`Error: ${error.message}`, `平台: ${detectPlatform()}`, `URL: ${window.location.href}`]
           });
         }
       } else if (request.action === "detectPlatform") {
         sendResponse({ platform: detectPlatform() });
+      } else if (request.action === "downloadImages") {
+        try {
+          const platform = detectPlatform();
+          if (platform === 'Claude') {
+            const result = await downloadClaudeImages();
+            sendResponse({
+              platform: 'Claude',
+              success: result.success,
+              downloadedFiles: result.downloadedFiles,
+              errors: result.errors,
+              message: result.success 
+                ? `成功下载 ${result.downloadedFiles.length} 张图片` 
+                : '图片下载失败'
+            });
+          } else {
+            sendResponse({
+              platform,
+              success: false,
+              error: '当前平台不支持图片下载功能',
+              downloadedFiles: []
+            });
+          }
+        } catch (error: any) {
+          sendResponse({
+            success: false,
+            error: `图片下载失败: ${error.message}`,
+            downloadedFiles: []
+          });
+        }
+      } else if (request.action === "getImageInfo") {
+        try {
+          const platform = detectPlatform();
+          if (platform === 'Claude') {
+            const result = await getClaudeImageInfo();
+            sendResponse({
+              platform: 'Claude',
+              success: true,
+              imageCount: result.imageCount,
+              images: result.images
+            });
+          } else {
+            sendResponse({
+              platform,
+              success: false,
+              imageCount: 0,
+              images: [],
+              message: '当前平台不支持图片信息获取'
+            });
+          }
+        } catch (error: any) {
+          sendResponse({
+            success: false,
+            error: `获取图片信息失败: ${error.message}`,
+            imageCount: 0,
+            images: []
+          });
+        }
       }
       return true;
     });

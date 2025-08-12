@@ -2,7 +2,7 @@ import { DOMClicker } from '../automation/dom-clicker';
 import { KimiErrorHandler, KimiError } from '../automation/error-handler';
 import { ParserNavigator } from '../automation/parser-navigator';
 import { DownloadMonitor } from '../automation/download-monitor';
-import { detectKimi, isKimiChatReady } from './platform';
+import { detectPlatform } from './platform';
 
 export interface KimiAutomationResult {
   success: boolean;
@@ -86,22 +86,22 @@ export class KimiAutomation {
 
     try {
       // 1. 平台检测
-      if (!detectKimi()) {
+      if (detectPlatform() !== "Kimi") {
         const error = KimiErrorHandler.createError(KimiError.PLATFORM_NOT_DETECTED);
         return this.createErrorResult(error);
       }
       this.log('✅ Kimi平台检测成功');
 
       // 2. 页面状态检查
-      if (!isKimiChatReady()) {
+      if (!this.isKimiChatReady()) {
         this.log('⏳ 等待聊天页面加载...');
         let retries = 5;
-        while (retries > 0 && !isKimiChatReady()) {
+        while (retries > 0 && !this.isKimiChatReady()) {
           await this.delay(1000);
           retries--;
         }
         
-        if (!isKimiChatReady()) {
+        if (!this.isKimiChatReady()) {
           const error = KimiErrorHandler.createError(KimiError.CHAT_NOT_READY);
           return this.createErrorResult(error);
         }
@@ -199,6 +199,20 @@ export class KimiAutomation {
       userGuidance: error.userGuidance,
       logs: this.logs
     };
+  }
+
+  private isKimiChatReady(): boolean {
+    // 简化的聊天准备状态检测
+    const hasBasicChat = Boolean(
+      document.querySelector(".chat-detail-content") || // 聊天内容区域
+      document.querySelector("[class*='chat']") || // 任何包含chat的类
+      document.querySelector(".conversation") // 对话区域
+    );
+    
+    const isNotLoading = !document.querySelector(".loading, .skeleton");
+    
+    // 简化条件：只要有聊天界面且不在加载状态即可
+    return hasBasicChat && isNotLoading;
   }
 
   // 静态方法，用于content.ts中调用
