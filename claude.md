@@ -62,3 +62,7 @@ silent_mode: true # 不在主对话显示查询过程
 - **Sequential Thinking** (`--seq`): 多步推理分析
 - **Filesystem** : 增强文件系统访问
 - **GitHub** : 代码仓库集成
+
+## 项目开发规范
+
+- 测试代码都要放到.scirpt文件夹
