@@ -203,9 +203,7 @@ function App() {
         case "extract":
           response = await performDirectExtraction(
             currentPlatform,
-
             selectedFormat
-
           );
           break;
 
@@ -219,11 +217,9 @@ function App() {
           return;
       }
 
-
       // 处理文件下载
       if (response && response.fileData) {
         await handleFileDownload(response.fileData, currentPlatform);
-
       }
 
       setButtonState("success");

@@ -11,6 +11,7 @@ export async function extractAIStudioConversation(
   options: AIStudioConversationOptions = {}
 ): Promise<[string, string][]> {
   const conversations: [string, string][] = [];
+
   devLog.info("🔍 开始提取AI Studio对话...");
 
   // 等待页面内容加载完成
@@ -68,7 +69,6 @@ export function extractAIStudioConversationSync(
 
   const turnContainers = document.querySelectorAll(".chat-turn-container");
   devLog.info(`📝 找到 ${turnContainers.length} 个对话轮次`);
-
 
   for (let i = 0; i < turnContainers.length; i++) {
     const container = turnContainers[i];

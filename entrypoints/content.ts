@@ -1,13 +1,10 @@
-
 import {
   htmlToMarkdown,
   formatMarkdownMetadata,
   formatMarkdownMessage,
   downloadMarkdown,
 } from "./export/markdown";
-
 import { DEV_CONFIG, devLog } from "./config/dev-config";
-
 import {
   simplifyHtml,
   formatHtmlMetadata,
@@ -74,7 +71,6 @@ export default defineContentScript({
     let lastUrl = window.location.href;
 
     devLog.info("🚀 Content script初始化:", {
-
       url: lastUrl,
       hostname: window.location.hostname,
       platform: currentPlatform,
@@ -87,7 +83,6 @@ export default defineContentScript({
       window.location.hostname.includes("claude.ai") &&
       currentPlatform === "Unknown"
     ) {
-
       devLog.warn("⚠️ Claude平台检测失败，开始诊断:");
       devLog.info("页面标题:", document.title);
       devLog.info("DOM状态:", document.readyState);
@@ -104,20 +99,16 @@ export default defineContentScript({
       selectors.forEach((selector) => {
         try {
           const elements = document.querySelectorAll(selector);
-
           devLog.info(`选择器 "${selector}":`, elements.length, "个元素");
         } catch (e) {
           devLog.error(`选择器 "${selector}" 失败:`, e.message);
-
         }
       });
     }
 
     // 向background script报告当前平台状态
     const reportPlatformChange = (platform: string) => {
-
       devLog.info("📡 向background报告平台变化:", platform);
-
       try {
         browser.runtime
           .sendMessage({
@@ -126,12 +117,10 @@ export default defineContentScript({
             url: window.location.href,
           })
           .catch((err) => {
-
             devLog.warn("Background可能还未准备就绪:", err.message);
           });
       } catch (e) {
         devLog.error("发送平台变化消息失败:", e);
-
       }
     };
 
@@ -143,9 +132,7 @@ export default defineContentScript({
       const newPlatform = detectPlatform();
 
       if (currentUrl !== lastUrl || newPlatform !== currentPlatform) {
-
         devLog.info("🔄 检测到变化:", {
-
           urlChanged: currentUrl !== lastUrl,
           platformChanged: newPlatform !== currentPlatform,
           oldUrl: lastUrl,
@@ -164,9 +151,7 @@ export default defineContentScript({
 
     // 监听浏览器导航事件
     window.addEventListener("popstate", () => {
-
       devLog.info("🔙 PopState事件触发");
-
       setTimeout(checkUrlAndPlatformChange, 100);
     });
 

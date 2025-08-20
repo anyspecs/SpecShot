@@ -335,4 +335,3 @@ export function detectDoubao(): boolean {
     document.querySelector('[data-testid="receive_message"]') !== null
   );
 }
-
