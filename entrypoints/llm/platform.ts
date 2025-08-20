@@ -5,6 +5,7 @@ export type Platform =
   | "Kimi"
   | "Gemini"
   | "Doubao"
+  | "AIStudio"
   | "Unknown";
 
 export function detectPlatform(): Platform {
@@ -15,6 +16,7 @@ export function detectPlatform(): Platform {
   if (hostname === "doubao.com" || hostname === "www.doubao.com")
     return "Doubao";
   if (hostname === "gemini.google.com") return "Gemini";
+  if (hostname === "aistudio.google.com") return "AIStudio";
   if (hostname === "kimi.moonshot.cn") return "Kimi";
   if (document.querySelector("div.ChatMessagesView_messagePair__ZEXUz"))
     return "Poe";

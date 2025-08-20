@@ -41,6 +41,12 @@ import {
   downloadDoubaoImages,
   getDoubaoImageInfo,
 } from "./llm/doubao";
+import {
+  extractAIStudioConversation,
+  extractAIStudioConversationSync,
+  downloadAIStudioImages,
+  getAIStudioImageInfo,
+} from "./llm/aistudio";
 import { KimiAutomation } from "./llm/kimi";
 import { detectPlatform, type Platform } from "./llm/platform";
 
@@ -56,6 +62,7 @@ export default defineContentScript({
     "*://bard.google.com/*",
     "*://doubao.com/*",
     "*://www.doubao.com/*",
+    "*://aistudio.google.com/*",
   ],
   main() {
     // 初始化时立即检测并记录平台
@@ -318,6 +325,12 @@ export default defineContentScript({
             includeImages: true,
             downloadImages: false,
           });
+        case "AIStudio":
+          // 使用异步版本进行base64图片处理
+          return await extractAIStudioConversation(extractContent, {
+            includeImages: true,
+            downloadImages: false,
+          });
         default:
           return [];
       }
@@ -456,6 +469,17 @@ export default defineContentScript({
                   ? `成功下载 ${result.downloadedFiles.length} 张ChatGPT图片`
                   : "ChatGPT图片下载失败",
               });
+            } else if (platform === "AIStudio") {
+              const result = await downloadAIStudioImages();
+              sendResponse({
+                platform: "AIStudio",
+                success: result.success,
+                downloadedFiles: result.downloadedFiles,
+                errors: result.errors,
+                message: result.success
+                  ? `成功下载 ${result.downloadedFiles.length} 张AI Studio图片`
+                  : "AI Studio图片下载失败",
+              });
             } else {
               sendResponse({
                 platform,
@@ -502,6 +526,14 @@ export default defineContentScript({
               const result = await getChatGPTImageInfo();
               sendResponse({
                 platform: "ChatGPT",
+                success: true,
+                imageCount: result.imageCount,
+                images: result.images,
+              });
+            } else if (platform === "AIStudio") {
+              const result = await getAIStudioImageInfo();
+              sendResponse({
+                platform: "AIStudio",
                 success: true,
                 imageCount: result.imageCount,
                 images: result.images,
