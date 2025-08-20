@@ -1,4 +1,5 @@
 export type Platform = 'ChatGPT' | 'Claude' | 'Poe' | 'Kimi' | 'Gemini' | 'Doubao' | 'AIStudio' | 'Unknown';
+
 export type ActionType = 'extract' | 'automate' | 'detect';
 export type ButtonState = 'idle' | 'processing' | 'success' | 'error';
 
