@@ -1,4 +1,5 @@
 import { AIStudioImageProcessor } from "../utils/image-downloader";
+import { DEV_CONFIG, devLog } from "../config/dev-config";
 
 export interface AIStudioConversationOptions {
   includeImages?: boolean;
@@ -10,8 +11,7 @@ export async function extractAIStudioConversation(
   options: AIStudioConversationOptions = {}
 ): Promise<[string, string][]> {
   const conversations: [string, string][] = [];
-
-  console.log("🔍 开始提取AI Studio对话...");
+  devLog.info("🔍 开始提取AI Studio对话...");
 
   // 等待页面内容加载完成
   const contentReady = await waitForContent();
@@ -22,7 +22,7 @@ export async function extractAIStudioConversation(
 
   // AI Studio 使用 chat-turn-container 包含每个对话轮次
   const turnContainers = document.querySelectorAll(".chat-turn-container");
-  console.log(`📝 找到 ${turnContainers.length} 个对话轮次`);
+  devLog.info(`📝 找到 ${turnContainers.length} 个对话轮次`);
 
   for (let i = 0; i < turnContainers.length; i++) {
     const container = turnContainers[i];
@@ -67,7 +67,8 @@ export function extractAIStudioConversationSync(
   console.log("🔍 开始同步提取AI Studio对话...");
 
   const turnContainers = document.querySelectorAll(".chat-turn-container");
-  console.log(`📝 找到 ${turnContainers.length} 个对话轮次`);
+  devLog.info(`📝 找到 ${turnContainers.length} 个对话轮次`);
+
 
   for (let i = 0; i < turnContainers.length; i++) {
     const container = turnContainers[i];

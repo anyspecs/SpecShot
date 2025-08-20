@@ -622,6 +622,77 @@
   }
 }
 
+/* 格式选择区域 */
+.format-selection {
+  margin-bottom: 20px;
+  padding: 16px;
+  background: var(--log-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+}
+
+.format-selection h3 {
+  margin: 0 0 12px 0;
+  font-size: 0.9em;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.format-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.format-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: var(--background-color);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.format-option:hover {
+  border-color: var(--primary-color);
+  background: rgba(79, 70, 229, 0.02);
+}
+
+.format-option.selected {
+  border-color: var(--primary-color);
+  background: rgba(79, 70, 229, 0.05);
+  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
+}
+
+.format-option input[type="radio"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--primary-color);
+}
+
+.format-icon {
+  font-size: 1.2em;
+  line-height: 1;
+}
+
+.format-name {
+  font-weight: 500;
+  font-size: 0.9em;
+  color: var(--text-color);
+  min-width: 80px;
+}
+
+.format-desc {
+  font-size: 0.8em;
+  color: var(--text-secondary);
+  flex: 1;
+}
+
 /* 深色模式下的认证样式调整 */
 @media (prefers-color-scheme: dark) {
   .login-btn {
@@ -635,5 +706,110 @@
   .error-container {
     background: rgba(239, 68, 68, 0.15);
     border-color: rgba(239, 68, 68, 0.3);
+  }
+
+  .format-option:hover {
+    background: rgba(99, 102, 241, 0.03);
+  }
+
+  .format-option.selected {
+    background: rgba(99, 102, 241, 0.08);
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+  }
+}
+
+/* 响应式格式选择 */
+@media (max-width: 380px) {
+  .format-selection {
+    padding: 12px;
+  }
+  
+  .format-option {
+    padding: 10px;
+    gap: 10px;
+  }
+  
+  .format-name {
+    min-width: 70px;
+    font-size: 0.85em;
+  }
+  
+  .format-desc {
+    font-size: 0.75em;
+  }
+}
+
+/* 底部推广链接 */
+.footer-link {
+  margin-top: 20px;
+  padding: 16px;
+  background: linear-gradient(135deg, var(--log-bg) 0%, rgba(79, 70, 229, 0.03) 100%);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  text-align: center;
+}
+
+.footer-text {
+  margin: 0 0 12px 0;
+  font-size: 0.8em;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.footer-link-button {
+  display: inline-block;
+  padding: 8px 16px;
+  background: linear-gradient(135deg, var(--primary-color) 0%, #6366F1 100%);
+  color: white;
+  text-decoration: none;
+  border-radius: 6px;
+  font-size: 0.85em;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(79, 70, 229, 0.2);
+}
+
+.footer-link-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(79, 70, 229, 0.3);
+  text-decoration: none;
+  color: white;
+}
+
+.footer-link-button:active {
+  transform: translateY(0);
+}
+
+/* 深色模式下的底部链接样式 */
+@media (prefers-color-scheme: dark) {
+  .footer-link {
+    background: linear-gradient(135deg, var(--log-bg) 0%, rgba(99, 102, 241, 0.05) 100%);
+  }
+  
+  .footer-link-button {
+    background: linear-gradient(135deg, #6366F1 0%, #7C3AED 100%);
+    box-shadow: 0 2px 4px rgba(99, 102, 241, 0.25);
+  }
+  
+  .footer-link-button:hover {
+    box-shadow: 0 4px 8px rgba(99, 102, 241, 0.35);
+  }
+}
+
+/* 响应式底部链接 */
+@media (max-width: 380px) {
+  .footer-link {
+    margin-top: 16px;
+    padding: 12px;
+  }
+  
+  .footer-text {
+    font-size: 0.75em;
+    margin-bottom: 10px;
+  }
+  
+  .footer-link-button {
+    padding: 6px 12px;
+    font-size: 0.8em;
   }
 }

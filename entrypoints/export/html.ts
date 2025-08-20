@@ -14,12 +14,17 @@ export function formatHtmlMessage(speaker: string, text: string): string {
 }
 
 export function downloadHtml(content: string): string {
-  const blob = new Blob([content], { type: 'text/html' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `conversation_${new Date().toISOString().replace(/[:.]/g, '-')}.html`;
-  a.click();
-  URL.revokeObjectURL(url);
-  return 'File download initiated';
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const filename = `conversation_${timestamp}.html`;
+  
+  // 注释掉自动下载功能
+  // const blob = new Blob([content], { type: 'text/html' });
+  // const url = URL.createObjectURL(blob);
+  // const a = document.createElement('a');
+  // a.href = url;
+  // a.download = filename;
+  // a.click();
+  // URL.revokeObjectURL(url);
+  
+  return filename;
 }

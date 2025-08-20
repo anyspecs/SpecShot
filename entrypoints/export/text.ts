@@ -18,12 +18,17 @@ export function formatPlaintextMessage(speaker: string, text: string): string {
 }
 
 export function downloadPlaintext(content: string): string {
-  const blob = new Blob([content], { type: 'text/plain' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `conversation_${new Date().toISOString().replace(/[:.]/g, '-')}.txt`;
-  a.click();
-  URL.revokeObjectURL(url);
-  return 'File download initiated';
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const filename = `conversation_${timestamp}.txt`;
+  
+  // 注释掉自动下载功能
+  // const blob = new Blob([content], { type: 'text/plain' });
+  // const url = URL.createObjectURL(blob);
+  // const a = document.createElement('a');
+  // a.href = url;
+  // a.download = filename;
+  // a.click();
+  // URL.revokeObjectURL(url);
+  
+  return filename;
 }

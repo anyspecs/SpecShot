@@ -1,4 +1,3 @@
-
 export type Platform = 'ChatGPT' | 'Claude' | 'Poe' | 'Kimi' | 'Gemini' | 'Doubao' | 'AIStudio' | 'Unknown';
 
 export type ActionType = 'extract' | 'automate' | 'detect';
@@ -55,7 +54,6 @@ export const PLATFORM_CONFIGS: Record<Platform, PlatformConfig> = {
     icon: '🫘',
     description: '豆包对话剪存'
   },
-
   AIStudio: {
     action: 'extract',
     format: 'markdown',
@@ -63,7 +61,6 @@ export const PLATFORM_CONFIGS: Record<Platform, PlatformConfig> = {
     icon: '🔬',
     description: 'AI Studio对话剪存'
   },
-
   Unknown: {
     action: 'detect',
     format: null,
@@ -121,10 +118,8 @@ export const getPlatformSpecificHelp = (platform: Platform): string => {
     Kimi: '请确保在Kimi聊天页面，且页面功能正常',
     Gemini: '请确保在Gemini对话页面，且对话内容已加载',
     Doubao: '请确保在豆包对话页面，且对话内容已加载',
-
     AIStudio: '请确保在AI Studio对话页面，且对话内容已加载',
     Unknown: '请在ChatGPT、Claude、Poe、Kimi、Gemini、豆包或AI Studio页面使用此扩展'
-
   };
   
   return helpMessages[platform];

@@ -5,6 +5,9 @@ import {
   formatMarkdownMessage,
   downloadMarkdown,
 } from "./export/markdown";
+
+import { DEV_CONFIG, devLog } from "./config/dev-config";
+
 import {
   simplifyHtml,
   formatHtmlMetadata,
@@ -64,14 +67,14 @@ export default defineContentScript({
     "*://doubao.com/*",
     "*://www.doubao.com/*",
     "*://aistudio.google.com/*",
-
   ],
   main() {
     // 初始化时立即检测并记录平台
     let currentPlatform = detectPlatform();
     let lastUrl = window.location.href;
 
-    console.log("🚀 Content script初始化:", {
+    devLog.info("🚀 Content script初始化:", {
+
       url: lastUrl,
       hostname: window.location.hostname,
       platform: currentPlatform,
@@ -84,10 +87,11 @@ export default defineContentScript({
       window.location.hostname.includes("claude.ai") &&
       currentPlatform === "Unknown"
     ) {
-      console.warn("⚠️ Claude平台检测失败，开始诊断:");
-      console.log("页面标题:", document.title);
-      console.log("DOM状态:", document.readyState);
-      console.log("Body存在:", !!document.body);
+
+      devLog.warn("⚠️ Claude平台检测失败，开始诊断:");
+      devLog.info("页面标题:", document.title);
+      devLog.info("DOM状态:", document.readyState);
+      devLog.info("Body存在:", !!document.body);
 
       // 检查常见的Claude元素
       const selectors = [
@@ -100,16 +104,20 @@ export default defineContentScript({
       selectors.forEach((selector) => {
         try {
           const elements = document.querySelectorAll(selector);
-          console.log(`选择器 "${selector}":`, elements.length, "个元素");
+
+          devLog.info(`选择器 "${selector}":`, elements.length, "个元素");
         } catch (e) {
-          console.log(`选择器 "${selector}" 失败:`, e.message);
+          devLog.error(`选择器 "${selector}" 失败:`, e.message);
+
         }
       });
     }
 
     // 向background script报告当前平台状态
     const reportPlatformChange = (platform: string) => {
-      console.log("📡 向background报告平台变化:", platform);
+
+      devLog.info("📡 向background报告平台变化:", platform);
+
       try {
         browser.runtime
           .sendMessage({
@@ -118,10 +126,12 @@ export default defineContentScript({
             url: window.location.href,
           })
           .catch((err) => {
-            console.log("Background可能还未准备就绪:", err.message);
+
+            devLog.warn("Background可能还未准备就绪:", err.message);
           });
       } catch (e) {
-        console.log("发送平台变化消息失败:", e);
+        devLog.error("发送平台变化消息失败:", e);
+
       }
     };
 
@@ -133,7 +143,9 @@ export default defineContentScript({
       const newPlatform = detectPlatform();
 
       if (currentUrl !== lastUrl || newPlatform !== currentPlatform) {
-        console.log("🔄 检测到变化:", {
+
+        devLog.info("🔄 检测到变化:", {
+
           urlChanged: currentUrl !== lastUrl,
           platformChanged: newPlatform !== currentPlatform,
           oldUrl: lastUrl,
@@ -152,7 +164,9 @@ export default defineContentScript({
 
     // 监听浏览器导航事件
     window.addEventListener("popstate", () => {
-      console.log("🔙 PopState事件触发");
+
+      devLog.info("🔙 PopState事件触发");
+
       setTimeout(checkUrlAndPlatformChange, 100);
     });
 
@@ -315,7 +329,6 @@ export default defineContentScript({
           });
         case "Poe":
           return extractPoeConversation(extractContent);
-
         case "Gemini":
           // 使用异步版本进行图片处理
           return await extractGeminiConversation(extractContent, {
@@ -334,7 +347,6 @@ export default defineContentScript({
             includeImages: true,
             downloadImages: false,
           });
-
         default:
           return [];
       }

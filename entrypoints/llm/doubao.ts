@@ -1,4 +1,3 @@
-
 import { DoubaoImageProcessor } from "../utils/image-downloader";
 
 export interface DoubaoConversationOptions {
@@ -47,7 +46,6 @@ export async function extractDoubaoConversation(
     const aiMessage = container.querySelector(
       '[data-testid="receive_message"]'
     );
-=
     if (aiMessage) {
       const content = extractContent(aiMessage);
       if (content.length > 1) {
