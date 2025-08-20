@@ -7,6 +7,7 @@ import {
   type Platform,
   type ButtonState,
 } from "./platform-config";
+import { DEV_CONFIG, devLog } from "../config/dev-config";
 // 移除AuthManager import，不再需要认证功能
 
 interface LogEntry {
@@ -23,10 +24,13 @@ function App() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [selectedFormat, setSelectedFormat] = useState<'markdown' | 'html' | 'text'>('markdown');
 
   // 移除认证相关状态
 
   const log = (message: string) => {
+    if (!DEV_CONFIG.showDebugLogs) return; // 开发者配置控制
+    
     const logEntry: LogEntry = {
       timestamp: new Date().toLocaleTimeString(),
       message,
@@ -35,6 +39,7 @@ function App() {
   };
 
   const clearLogs = () => {
+    if (!DEV_CONFIG.showDebugLogs) return; // 开发者配置控制
     setDebugLog([]);
   };
 
@@ -134,168 +139,48 @@ function App() {
 
   // 移除登录跳转逻辑
 
-  // 修改后的文件处理逻辑（发送数据到processor页面）
-  const handleFileUpload = async (fileData: any, platform: string) => {
-    // 移除认证检查，直接处理
-
+  // 简化的文件处理逻辑（仅下载功能）
+  const handleFileDownload = async (fileData: any, platform: string) => {
     setIsProcessing(true);
     setProgress(0);
 
     try {
-      log("📁 准备文件数据...");
-
-      // 检查是否需要等待下载检测
-      if (fileData.needsDownloadDetection) {
-        log("🔍 等待后台服务检测文件下载...");
-        log("💡 请手动点击下载按钮开始下载文件");
-
-        // 显示模拟进度，等待后台检测
-        for (let i = 0; i <= 80; i += 2) {
-          setProgress(i);
-          await new Promise((resolve) => setTimeout(resolve, 50));
-        }
-
-        // 保持在80%等待后台完成
-        log("⏳ 正在等待文件下载完成...");
-        return; // 让后台服务处理剩余流程
-      }
-
+      log("📁 准备文件下载...");
       setProgress(30);
-      log("📝 格式化文件内容...");
-
+      
       // 准备文件数据
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-      const filename = `${platform}-conversations-${timestamp}.md`;
+      const extensions = { markdown: 'md', html: 'html', text: 'txt' };
+      const mimeTypes = { 
+        markdown: 'text/markdown', 
+        html: 'text/html', 
+        text: 'text/plain' 
+      };
+      
+      const filename = `${platform}-conversations-${timestamp}.${extensions[selectedFormat]}`;
       const content = fileData.content || fileData;
 
       setProgress(60);
-      log("🌐 打开processor页面...");
+      log(`📝 准备下载${selectedFormat.toUpperCase()}文件...`);
 
-      // 先打开processor页面
-      const processorTab = await chrome.tabs.create({
-        url: "https://hub.anyspecs.cn/processor",
-        active: true,
-      });
-
-      setProgress(80);
-      log("📨 发送文件数据到processor...");
-
-      // 使用重试机制发送数据
-      const sendWithRetry = async (retryCount = 0) => {
-        const maxRetries = 3;
-        const delay = (retryCount + 1) * 2000; // 2s, 4s, 6s
-
-        setTimeout(async () => {
-          try {
-            log(`📤 尝试发送数据 (第${retryCount + 1}次)...`);
-
-            const result = await chrome.scripting.executeScript({
-              target: { tabId: processorTab.id! },
-              function: (data, attempt) => {
-                console.log(
-                  `Extension: 第${attempt}次尝试发送postMessage`,
-                  data
-                );
-                console.log("Extension: 页面状态:", {
-                  readyState: document.readyState,
-                  url: window.location.href,
-                  hasReact: !!window.React,
-                  bodyContent: document.body
-                    ? document.body.innerHTML.length
-                    : 0,
-                  hasMessageListener: window.hasMessageListener || false,
-                });
-
-                // 等待页面完全加载后再发送
-                const sendAfterLoad = () => {
-                  // 发送postMessage
-                  console.log("Extension: 准备发送postMessage...");
-                  window.postMessage(
-                    {
-                      type: "PLUGIN_FILE_DATA",
-                      content: data.content,
-                      filename: data.filename,
-                      platform: data.platform,
-                    },
-                    "*"
-                  );
-
-                  console.log("Extension: postMessage已发送");
-
-                  // 同时设置到window对象，作为备用方案
-                  window.extensionFileData = {
-                    type: "PLUGIN_FILE_DATA",
-                    content: data.content,
-                    filename: data.filename,
-                    platform: data.platform,
-                  };
-                  console.log(
-                    "Extension: 数据已设置到window.extensionFileData"
-                  );
-
-                  // 触发自定义事件作为第三种备用方案
-                  try {
-                    const customEvent = new CustomEvent("extensionFileData", {
-                      detail: {
-                        type: "PLUGIN_FILE_DATA",
-                        content: data.content,
-                        filename: data.filename,
-                        platform: data.platform,
-                      },
-                    });
-                    window.dispatchEvent(customEvent);
-                    console.log("Extension: 自定义事件已触发");
-                  } catch (e) {
-                    console.log("Extension: 自定义事件触发失败", e);
-                  }
-
-                  return `成功发送 (尝试${attempt})`;
-                };
-
-                // 如果页面未完全加载，等待加载完成
-                if (document.readyState !== "complete") {
-                  console.log("Extension: 页面未完全加载，等待...");
-                  window.addEventListener("load", () => {
-                    setTimeout(sendAfterLoad, 1000);
-                  });
-                  return `等待页面加载 (尝试${attempt})`;
-                } else {
-                  // 页面已加载，稍微延迟后发送（给React组件时间初始化）
-                  setTimeout(sendAfterLoad, 500);
-                  return `页面已加载，延迟发送 (尝试${attempt})`;
-                }
-              },
-              args: [{ content, filename, platform }, retryCount + 1],
-            });
-
-            log(`✅ 第${retryCount + 1}次发送成功！`);
-            log(`📝 返回: ${result[0].result}`);
-          } catch (error) {
-            console.error(`第${retryCount + 1}次发送失败:`, error);
-            log(`❌ 第${retryCount + 1}次失败: ${error}`);
-
-            if (retryCount < maxRetries - 1) {
-              log(`🔄 将在${(retryCount + 2) * 2}秒后重试...`);
-              sendWithRetry(retryCount + 1);
-            } else {
-              log("❌ 所有重试都失败了，请手动刷新processor页面");
-            }
-          }
-        }, delay);
-      };
-
-      // 开始发送
-      sendWithRetry();
+      // 直接触发文件下载
+      const blob = new Blob([content], { type: mimeTypes[selectedFormat] });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
 
       setProgress(100);
-      log("🎉 操作完成！");
+      log("✅ 文件下载完成！");
 
       // 关闭popup
       setTimeout(() => {
         window.close();
       }, 1000);
     } catch (error: any) {
-      log(`❌ 操作失败: ${error.message}`);
+      log(`❌ 下载失败: ${error.message}`);
       setIsProcessing(false);
       setProgress(0);
       setButtonState("error");
@@ -318,7 +203,7 @@ function App() {
         case "extract":
           response = await performDirectExtraction(
             currentPlatform,
-            config.format!
+            selectedFormat
           );
           break;
 
@@ -332,21 +217,9 @@ function App() {
           return;
       }
 
-      // 处理文件上传或跳转
+      // 处理文件下载
       if (response && response.fileData) {
-        await handleFileUpload(response.fileData, currentPlatform);
-      } else if (response && response.automationMode && response.success) {
-        // Kimi自动化成功，直接跳转到processor页面
-        log("🎉 Kimi自动化完成，跳转到processor页面...");
-        await chrome.tabs.create({
-          url: "https://hub.anyspecs.cn/processor",
-          active: true,
-        });
-
-        // 关闭popup
-        setTimeout(() => {
-          window.close();
-        }, 500);
+        await handleFileDownload(response.fileData, currentPlatform);
       }
 
       setButtonState("success");
@@ -433,66 +306,16 @@ function App() {
   useEffect(() => {
     initializePopup();
 
-    // 监听来自background script的消息
+    // 监听来自background script的消息（简化版本）
     const messageListener = (message: any) => {
-      if (message.action === "fileUploadComplete") {
-        // 处理下载检测完成的情况，发送到processor页面
+      if (message.action === "fileDownloadComplete") {
         if (message.success) {
-          log("✅ 文件检测完成！");
-          log("🌐 正在跳转到processor页面...");
-
-          // 跳转到processor页面
-          chrome.tabs
-            .create({
-              url: "https://hub.anyspecs.cn/processor",
-              active: true,
-            })
-            .then((tab) => {
-              // 如果后台服务提供了文件数据，发送给processor
-              if (message.fileData) {
-                setTimeout(async () => {
-                  try {
-                    const timestamp = new Date()
-                      .toISOString()
-                      .replace(/[:.]/g, "-");
-                    const filename = `${currentPlatform}-conversations-${timestamp}.md`;
-
-                    await chrome.scripting.executeScript({
-                      target: { tabId: tab.id! },
-                      function: (data) => {
-                        window.postMessage(
-                          {
-                            type: "PLUGIN_FILE_DATA",
-                            content: data.content,
-                            filename: data.filename,
-                            platform: data.platform,
-                          },
-                          "*"
-                        );
-                      },
-                      args: [
-                        {
-                          content: message.fileData,
-                          filename,
-                          platform: currentPlatform,
-                        },
-                      ],
-                    });
-
-                    log("✅ 文件数据发送成功！");
-                  } catch (error) {
-                    console.error("Failed to send file data:", error);
-                    log("❌ 文件数据发送失败，请手动上传文件");
-                  }
-                }, 2000);
-              }
-            });
-
+          log("✅ 文件下载完成！");
           setTimeout(() => {
             window.close();
           }, 1000);
         } else {
-          log(`❌ 文件检测失败: ${message.error}`);
+          log(`❌ 文件下载失败: ${message.error}`);
           setIsProcessing(false);
           setProgress(0);
           setButtonState("error");
@@ -507,77 +330,6 @@ function App() {
     };
   }, []);
 
-  // 错误显示组件
-  const ErrorDisplay = ({
-    error,
-    onRetry,
-  }: {
-    error: string;
-    onRetry: () => void;
-  }) => (
-    <div className="error-container">
-      <div className="error-message">{error}</div>
-      <button className="retry-btn" onClick={onRetry}>
-        重试 ({retryCount}/3)
-      </button>
-    </div>
-  );
-
-  // 认证状态UI渲染
-  const renderAuthUI = () => {
-    if (authState === "loading") {
-      return (
-        <div className="auth-loading">
-          <span>🔍</span>
-          <p>检查登录状态...</p>
-        </div>
-      );
-    }
-
-    if (authState === "unauthenticated") {
-      return (
-        <div className="auth-required">
-          <div className="auth-message">
-            <span className="auth-icon">🔒</span>
-            <h3>请先登录再使用插件</h3>
-            <p>需要在网页版登录后才能使用文件提取和上传功能</p>
-            <div className="auth-actions">
-              <button className="login-btn" onClick={handleLoginRedirect}>
-                🌐 前往网页登录
-              </button>
-              <button
-                className="refresh-btn"
-                onClick={handleRetry}
-                disabled={retryCount >= 3}
-              >
-                🔄 刷新状态 ({retryCount}/3)
-              </button>
-            </div>
-            {errorMessage && (
-              <ErrorDisplay error={errorMessage} onRetry={handleRetry} />
-            )}
-          </div>
-        </div>
-      );
-    }
-
-    // 已认证状态 - 显示用户信息和操作界面
-    return (
-      <div className="authenticated">
-        <div className="user-info">
-          <img src={userInfo?.avatar} alt="avatar" className="user-avatar" />
-          <div className="user-details">
-            <span className="user-name">{userInfo?.name}</span>
-            <span className="user-email">{userInfo?.email}</span>
-          </div>
-          <button className="logout-btn" onClick={handleLogout} title="登出">
-            🚪
-          </button>
-        </div>
-        {renderMainUI()}
-      </div>
-    );
-  };
 
   // 主要UI渲染
   const renderMainUI = () => {
@@ -607,14 +359,73 @@ function App() {
           {buttonConfig.text}
         </button>
 
-        {/* 状态日志区域 - 只显示最近5条 */}
-        <div className="log-area">
-          {debugLog.slice(-5).map((entry, index) => (
-            <div key={index} className="log-entry">
-              <span className="log-time">{entry.timestamp}</span>
-              <span className="log-message">{entry.message}</span>
-            </div>
-          ))}
+        {/* 导出格式选择 */}
+        <div className="format-selection">
+          <h3>选择导出格式</h3>
+          <div className="format-options">
+            <label className={`format-option ${selectedFormat === 'markdown' ? 'selected' : ''}`}>
+              <input
+                type="radio"
+                value="markdown"
+                checked={selectedFormat === 'markdown'}
+                onChange={(e) => setSelectedFormat(e.target.value as 'markdown' | 'html' | 'text')}
+              />
+              <span className="format-icon">📝</span>
+              <span className="format-name">Markdown</span>
+              <span className="format-desc">适合技术文档</span>
+            </label>
+            
+            <label className={`format-option ${selectedFormat === 'html' ? 'selected' : ''}`}>
+              <input
+                type="radio"
+                value="html"
+                checked={selectedFormat === 'html'}
+                onChange={(e) => setSelectedFormat(e.target.value as 'markdown' | 'html' | 'text')}
+              />
+              <span className="format-icon">🌐</span>
+              <span className="format-name">HTML</span>
+              <span className="format-desc">保留完整格式</span>
+            </label>
+            
+            <label className={`format-option ${selectedFormat === 'text' ? 'selected' : ''}`}>
+              <input
+                type="radio"
+                value="text"
+                checked={selectedFormat === 'text'}
+                onChange={(e) => setSelectedFormat(e.target.value as 'markdown' | 'html' | 'text')}
+              />
+              <span className="format-icon">📄</span>
+              <span className="format-name">Plain Text</span>
+              <span className="format-desc">纯文本格式</span>
+            </label>
+          </div>
+        </div>
+
+        {/* 状态日志区域 - 只在开发者模式下显示 */}
+        {DEV_CONFIG.showDebugLogs && (
+          <div className="log-area">
+            {debugLog.slice(-3).map((entry, index) => (
+              <div key={index} className="log-entry">
+                <span className="log-time">{entry.timestamp}</span>
+                <span className="log-message">{entry.message}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* 底部推广链接 */}
+        <div className="footer-link">
+          <p className="footer-text">
+            我们还提供更专业的聊天上下文压缩与分享服务，欢迎了解
+          </p>
+          <a 
+            href="https://hub.anyspecs.cn/" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="footer-link-button"
+          >
+            访问 AnySpecs Hub
+          </a>
         </div>
       </>
     );
