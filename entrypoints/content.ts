@@ -1,3 +1,4 @@
+
 import {
   htmlToMarkdown,
   formatMarkdownMetadata,
@@ -63,6 +64,7 @@ export default defineContentScript({
     "*://doubao.com/*",
     "*://www.doubao.com/*",
     "*://aistudio.google.com/*",
+
   ],
   main() {
     // 初始化时立即检测并记录平台
@@ -313,6 +315,7 @@ export default defineContentScript({
           });
         case "Poe":
           return extractPoeConversation(extractContent);
+
         case "Gemini":
           // 使用异步版本进行图片处理
           return await extractGeminiConversation(extractContent, {
@@ -331,6 +334,7 @@ export default defineContentScript({
             includeImages: true,
             downloadImages: false,
           });
+
         default:
           return [];
       }
